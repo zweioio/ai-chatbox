@@ -122,9 +122,9 @@
     if (document.getElementById('ai-sp-container')) return;
 
     if (enabledPlatforms.length === 0) {
-      console.warn('AI Search Pro: No platforms enabled');
-      return;
-    }
+        console.warn('OmniAI Search: No platforms enabled');
+        return;
+      }
     
     // 如果当前平台被禁用了，则切换到第一个启用的平台
     if (!enabledPlatforms.includes(currentPlatform)) {
@@ -187,7 +187,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
           </div>
           <span class="ai-sp-logo">✦</span>
-          Alsearchpro
+          OmniAI
         </div>
         <div class="ai-sp-header-controls">
           <button id="ai-sp-web-btn" title="在网页打开">
