@@ -17,6 +17,54 @@
   --ai-sp-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
 }
 
+[data-ai-sp-theme="dark"] .ai-sp-platform-btn.active {
+  background: #374151;
+  color: #f3f4f6;
+}
+
+[data-ai-sp-theme="dark"] .ai-sp-platform-btn:hover:not(.active) {
+  background: #374151;
+}
+
+[data-ai-sp-theme="dark"] #ai-sp-global-input {
+  color: #f3f4f6;
+  border-color: #4b5563;
+}
+
+[data-ai-sp-theme="dark"] .ai-sp-settings-panel {
+  background: #1f2937;
+  color: #f3f4f6;
+}
+
+[data-ai-sp-theme="dark"] .ai-sp-settings-header {
+  border-bottom-color: #374151;
+}
+
+[data-ai-sp-theme="dark"] .ai-sp-settings-footer {
+  border-top-color: #374151;
+}
+
+[data-ai-sp-theme="dark"] .ai-sp-platform-item {
+  border-color: #374151;
+  background: #1f2937;
+}
+
+[data-ai-sp-theme="dark"] .ai-sp-platform-item:hover {
+  background: #374151;
+}
+
+[data-ai-sp-theme="dark"] .ai-sp-prompt-item {
+  border-color: #374151;
+  background: #1f2937;
+}
+
+[data-ai-sp-theme="dark"] .ai-sp-prompt-label-input,
+[data-ai-sp-theme="dark"] .ai-sp-prompt-text-input {
+  background: #374151;
+  color: #f3f4f6;
+  border-color: #4b5563;
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-ai-sp-theme="light"]) {
     --ai-sp-bg: #1f2937;
@@ -480,4 +528,24 @@ input:checked + .ai-sp-slider:before {
     width: 90% !important;
     height: 60vh !important;
   }
+}
+
+/* ========== 双排对比模式支持 ========== */
+.ai-sp-container.is-split-mode {
+  width: 760px; /* 变宽以容纳两个 iframe */
+}
+
+.ai-sp-iframe-content-area.is-split-mode {
+  display: flex;
+  flex-direction: row;
+}
+
+.ai-sp-iframe-content-area.is-split-mode > .ai-sp-iframe-container {
+  position: relative !important;
+  flex: 1;
+  width: 50% !important;
+  border-right: 1px solid var(--ai-sp-border);
+}
+.ai-sp-iframe-content-area.is-split-mode > .ai-sp-iframe-container:last-child {
+  border-right: none;
 }
