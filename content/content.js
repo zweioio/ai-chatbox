@@ -21,15 +21,7 @@
       id: key,
       enabled: true
     })),
-    prompts: [
-      { id: 'p1', label: '翻译', text: '请帮我翻译以下内容：', color: '#e0f2fe', textColor: '#1d4ed8' },
-      { id: 'p2', label: '总结', text: '请总结以下内容的核心观点：', color: '#dcfce7', textColor: '#0369a1' },
-      { id: 'p3', label: '润色', text: '请帮我润色这段文字，使其更专业：', color: '#f3e8ff', textColor: '#15803d' },
-      { id: 'p4', label: '解释', text: '请详细解释一下：', color: '#ffedd5', textColor: '#7e22ce' },
-      { id: 'p5', label: '写代码', text: '请帮我写一段代码，实现：', color: '#fee2e2', textColor: '#b91c1c' }
-    ],
-    theme: 'light', // 'light' or 'dark'
-    history: [] // 搜索历史记录
+    theme: 'light' // 'light' or 'dark'
   };
 
   let currentPlatform = 'doubao';
@@ -192,18 +184,6 @@
               `;
             }).join('')}
           </div>
-
-          <!-- Prompt 管理 -->
-          <div class="ai-sp-settings-section-title" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>快捷指令 (Prompt) 管理</span>
-            <button id="ai-sp-add-prompt-btn" style="background: none; border: none; color: var(--ai-sp-primary); cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 4px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              添加
-            </button>
-          </div>
-          <div class="ai-sp-prompt-list" id="ai-sp-prompt-list" style="display: flex; flex-direction: column; gap: 8px;">
-            <!-- 动态渲染 -->
-          </div>
         </div>
         <div class="ai-sp-settings-footer">
           <button class="ai-sp-settings-save-btn" id="ai-sp-settings-save-btn">保存并应用</button>
@@ -222,9 +202,6 @@
           <button id="ai-sp-split-mode-btn" title="双栏对比模式">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line></svg>
           </button>
-          <button id="ai-sp-history-btn" title="历史记录">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          </button>
           <button id="ai-sp-theme-btn" title="切换深浅色模式">
             <svg class="ai-sp-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: ${userConfig.theme === 'dark' ? 'none' : 'block'};"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
             <svg class="ai-sp-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: ${userConfig.theme === 'dark' ? 'block' : 'none'};"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
@@ -241,21 +218,6 @@
           <button id="ai-sp-close-btn" title="关闭">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-        </div>
-      </div>
-
-      <!-- 全局快捷 Prompt & 输入区域 -->
-      <div class="ai-sp-global-input-container" style="padding: 10px; border-bottom: 1px solid var(--ai-sp-border, #e5e7eb); background: var(--ai-sp-bg, #ffffff); display: flex; flex-direction: column; gap: 8px;">
-        <div class="ai-sp-quick-prompts" id="ai-sp-quick-prompts" style="display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; padding-bottom: 2px; scrollbar-width: none; -ms-overflow-style: none;">
-          <style>.ai-sp-quick-prompts::-webkit-scrollbar { display: none; }</style>
-          ${userConfig.prompts.map(p => `
-            <span class="ai-sp-prompt-tag" data-prompt="${p.text}" style="font-size: 12px; background: ${p.color}; color: ${p.textColor}; padding: 4px 8px; border-radius: 12px; cursor: pointer; user-select: none;">${p.label}</span>
-          `).join('')}
-        </div>
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="ai-sp-global-input" placeholder="追加提问或输入新搜索词..." style="flex: 1; padding: 6px 10px; border: 1px solid var(--ai-sp-border, #d1d5db); border-radius: 6px; font-size: 13px; outline: none; background: transparent; color: var(--ai-sp-text, #374151);">
-          <button id="ai-sp-global-stop-btn" title="停止生成" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; transition: background 0.2s; display: none;">停止</button>
-          <button id="ai-sp-global-send-btn" style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; transition: background 0.2s;">统一发送</button>
         </div>
       </div>
 
@@ -669,57 +631,10 @@
       bindDragEvents();
     }
 
-    // 生成 Prompt 列表的辅助函数
-    const promptList = container.querySelector('#ai-sp-prompt-list');
-    function renderSettingsPromptList() {
-      if (!promptList) return;
-      promptList.innerHTML = userConfig.prompts.map(p => `
-        <div class="ai-sp-prompt-item" data-id="${p.id}" style="display: flex; align-items: center; gap: 8px; background: var(--ai-sp-bg); border: 1px solid var(--ai-sp-border); padding: 8px 12px; border-radius: 8px;">
-          <input type="text" class="ai-sp-prompt-label-input" value="${p.label}" placeholder="标签名称 (如: 翻译)" style="width: 80px; padding: 4px 8px; border: 1px solid var(--ai-sp-border); border-radius: 4px; font-size: 12px; outline: none;">
-          <input type="text" class="ai-sp-prompt-text-input" value="${p.text}" placeholder="Prompt 内容" style="flex: 1; padding: 4px 8px; border: 1px solid var(--ai-sp-border); border-radius: 4px; font-size: 12px; outline: none;">
-          <button class="ai-sp-prompt-delete-btn" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
-        </div>
-      `).join('');
-
-      // 绑定删除事件
-      promptList.querySelectorAll('.ai-sp-prompt-delete-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const item = e.target.closest('.ai-sp-prompt-item');
-          if (item) item.remove();
-        });
-      });
-    }
-
-    const addPromptBtn = container.querySelector('#ai-sp-add-prompt-btn');
-    if (addPromptBtn) {
-      addPromptBtn.addEventListener('click', () => {
-        const id = 'p' + Date.now();
-        const colors = [
-          { color: '#e0f2fe', textColor: '#1d4ed8' },
-          { color: '#dcfce7', textColor: '#0369a1' },
-          { color: '#f3e8ff', textColor: '#15803d' },
-          { color: '#ffedd5', textColor: '#7e22ce' },
-          { color: '#fee2e2', textColor: '#b91c1c' }
-        ];
-        const randomColor = colors[Math.floor(Math.random() * colors.length)];
-        
-        userConfig.prompts.push({
-          id: id,
-          label: '新指令',
-          text: '请输入指令内容：',
-          ...randomColor
-        });
-        renderSettingsPromptList();
-      });
-    }
-
     if(settingsBtn) {
       settingsBtn.addEventListener('click', () => {
         // 打开时恢复最新的配置状态
         renderSettingsPlatformList();
-        renderSettingsPromptList();
         settingsPanel.style.display = 'flex';
       });
     }
@@ -804,7 +719,7 @@
     function saveSettings() {
       if (!platformList) return;
       
-      const newConfig = { platforms: [], prompts: [], theme: userConfig.theme };
+      const newConfig = { platforms: [], theme: userConfig.theme };
       
       // 收集平台配置
       const items = platformList.querySelectorAll('.ai-sp-platform-item');
@@ -813,28 +728,6 @@
         const enabled = item.querySelector('.ai-sp-platform-toggle').checked;
         newConfig.platforms.push({ id, enabled });
       });
-
-      // 收集 Prompt 配置
-      const promptListEl = container.querySelector('#ai-sp-prompt-list');
-      if (promptListEl) {
-        const promptItems = promptListEl.querySelectorAll('.ai-sp-prompt-item');
-        promptItems.forEach(item => {
-          const id = item.dataset.id;
-          const label = item.querySelector('.ai-sp-prompt-label-input').value;
-          const text = item.querySelector('.ai-sp-prompt-text-input').value;
-          // 保持原有颜色
-          const existingPrompt = userConfig.prompts.find(p => p.id === id);
-          if (label && text) {
-            newConfig.prompts.push({
-              id,
-              label,
-              text,
-              color: existingPrompt ? existingPrompt.color : '#e0f2fe',
-              textColor: existingPrompt ? existingPrompt.textColor : '#1d4ed8'
-            });
-          }
-        });
-      }
       
       // 更新全局变量
       userConfig = newConfig;
@@ -842,32 +735,8 @@
       // 同步缓存一份到 localStorage
       localStorage.setItem('aiSearchProLocalConfig', JSON.stringify(newConfig));
       
-      // 保存到 chrome.storage
-      chrome.storage.local.set({ aiSearchProConfig: userConfig }, () => {
-        // 更新快捷指令栏 UI
-        const quickPromptsContainer = container.querySelector('#ai-sp-quick-prompts');
-        if (quickPromptsContainer) {
-          quickPromptsContainer.innerHTML = `
-            <style>.ai-sp-quick-prompts::-webkit-scrollbar { display: none; }</style>
-            ${userConfig.prompts.map(p => `
-              <span class="ai-sp-prompt-tag" data-prompt="${p.text}" style="font-size: 12px; background: ${p.color}; color: ${p.textColor}; padding: 4px 8px; border-radius: 12px; cursor: pointer; user-select: none;">${p.label}</span>
-            `).join('')}
-          `;
-          // 重新绑定标签点击事件
-          quickPromptsContainer.querySelectorAll('.ai-sp-prompt-tag').forEach(tag => {
-            tag.addEventListener('click', () => {
-              const promptText = tag.dataset.prompt;
-              const globalInput = container.querySelector('#ai-sp-global-input');
-              if (globalInput) {
-                globalInput.value = promptText + ' ' + globalInput.value;
-                globalInput.focus();
-              }
-            });
-          });
-        }
-        // 动态更新 UI 而不销毁现有 iframe，以保留对话记录
-        updateUIWithoutReload();
-      });
+      // 动态更新 UI 而不销毁现有 iframe，以保留对话记录
+      updateUIWithoutReload();
     }
 
     // 动态更新 UI 辅助函数
@@ -1190,154 +1059,9 @@
     const webBtn = container.querySelector('#ai-sp-web-btn');
     if(webBtn) webBtn.addEventListener('click', openWeb);
 
-    // --- 全局快捷 Prompt & 输入处理 ---
-    const globalInput = container.querySelector('#ai-sp-global-input');
-    const globalSendBtn = container.querySelector('#ai-sp-global-send-btn');
-    const globalStopBtn = container.querySelector('#ai-sp-global-stop-btn');
-    const promptTags = container.querySelectorAll('.ai-sp-prompt-tag');
-
-    // 触发全局停止生成
-    const triggerGlobalStop = () => {
-      const enabledPlatformsList = userConfig.platforms.filter(p => p.enabled).map(p => p.id);
-      enabledPlatformsList.forEach(platformKey => {
-        const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
-        if (iframe && loadedPlatforms[platformKey]) {
-          try {
-            iframe.contentWindow.postMessage({ type: 'AI_SEARCH_PRO_STOP_GENERATION' }, '*');
-          } catch(e) {}
-        }
-      });
-      if (globalStopBtn) globalStopBtn.style.display = 'none';
-      if (globalSendBtn) globalSendBtn.style.display = 'block';
-    };
-
-    if (globalStopBtn) {
-      globalStopBtn.addEventListener('click', triggerGlobalStop);
-    }
-
-    // 点击 prompt tag 自动填入
-    promptTags.forEach(tag => {
-      tag.addEventListener('click', () => {
-        const promptText = tag.dataset.prompt;
-        if (globalInput) {
-          globalInput.value = promptText + ' ' + globalInput.value;
-          globalInput.focus();
-        }
-      });
-    });
-
-    // --- 历史记录面板逻辑 ---
-    const historyBtn = container.querySelector('#ai-sp-history-btn');
-    const historyPanel = container.querySelector('#ai-sp-history-panel');
-    const historyBackBtn = container.querySelector('#ai-sp-history-back-btn');
-    const historyClearBtn = container.querySelector('#ai-sp-history-clear-btn');
-    const historyList = container.querySelector('#ai-sp-history-list');
-
-    function renderHistoryList() {
-      if (!historyList) return;
-      if (!userConfig.history || userConfig.history.length === 0) {
-        historyList.innerHTML = '<div style="text-align: center; color: var(--ai-sp-text-light); padding: 20px;">暂无搜索历史</div>';
-        return;
-      }
-      
-      // 倒序排列，最新的在前面
-      historyList.innerHTML = [...userConfig.history].reverse().map((item, index) => {
-        // 计算真实索引
-        const realIndex = userConfig.history.length - 1 - index;
-        const date = new Date(item.timestamp);
-        const timeStr = `${date.getMonth()+1}-${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-        return `
-          <div class="ai-sp-history-item" data-index="${realIndex}" style="padding: 10px; border: 1px solid var(--ai-sp-border); border-radius: 8px; background: var(--ai-sp-bg); cursor: pointer; transition: background 0.2s;">
-            <div style="font-size: 13px; color: var(--ai-sp-text); margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">${item.query}</div>
-            <div style="font-size: 11px; color: var(--ai-sp-text-light); display: flex; justify-content: space-between;">
-              <span>${timeStr}</span>
-              <button class="ai-sp-history-delete-btn" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 0;">删除</button>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      // 绑定点击记录和删除按钮的事件
-      historyList.querySelectorAll('.ai-sp-history-item').forEach(itemEl => {
-        itemEl.addEventListener('click', (e) => {
-          if (e.target.classList.contains('ai-sp-history-delete-btn')) {
-            e.stopPropagation(); // 阻止触发查询
-            const index = parseInt(itemEl.dataset.index);
-            userConfig.history.splice(index, 1);
-            chrome.storage.local.set({ aiSearchProConfig: userConfig }, () => {
-              renderHistoryList();
-            });
-            return;
-          }
-          // 点击触发查询
-          const index = parseInt(itemEl.dataset.index);
-          const query = userConfig.history[index].query;
-          historyPanel.style.display = 'none';
-          if (globalInput) {
-            globalInput.value = query;
-          }
-          triggerGlobalSend(query, false); // 不再记录历史
-        });
-      });
-    }
-
-    if (historyBtn) {
-      historyBtn.addEventListener('click', () => {
-        renderHistoryList();
-        historyPanel.style.display = 'flex';
-      });
-    }
-
-    if (historyBackBtn) {
-      historyBackBtn.addEventListener('click', () => {
-        historyPanel.style.display = 'none';
-      });
-    }
-
-    if (historyClearBtn) {
-      historyClearBtn.addEventListener('click', () => {
-        if (confirm('确定要清空所有搜索历史吗？')) {
-          userConfig.history = [];
-          chrome.storage.local.set({ aiSearchProConfig: userConfig }, () => {
-            renderHistoryList();
-          });
-        }
-      });
-    }
-
-    // 修改全局发送方法，增加记录历史的逻辑
-    const triggerGlobalSend = (forceQuery, recordHistory = true) => {
-      const text = typeof forceQuery === 'string' ? forceQuery : (globalInput ? globalInput.value.trim() : '');
+    // 广播查询给所有启用的 AI
+    const triggerGlobalSend = (text) => {
       if (!text) return;
-      
-      if (globalInput) globalInput.value = ''; // 发送后清空
-      
-      // 记录历史
-      if (recordHistory) {
-        if (!userConfig.history) userConfig.history = [];
-        // 去重：如果最新的一条也是这个词，就不重复记录
-        if (userConfig.history.length === 0 || userConfig.history[userConfig.history.length - 1].query !== text) {
-          userConfig.history.push({
-            query: text,
-            timestamp: Date.now()
-          });
-          // 最多保留 50 条
-          if (userConfig.history.length > 50) {
-            userConfig.history.shift();
-          }
-          chrome.storage.local.set({ aiSearchProConfig: userConfig });
-        }
-      }
-      
-      // 显示停止按钮，隐藏发送按钮
-      if (globalSendBtn) globalSendBtn.style.display = 'none';
-      if (globalStopBtn) globalStopBtn.style.display = 'block';
-
-      // 10秒后自动恢复发送按钮 (大部分AI的生成时间)
-      setTimeout(() => {
-        if (globalStopBtn) globalStopBtn.style.display = 'none';
-        if (globalSendBtn) globalSendBtn.style.display = 'block';
-      }, 15000);
       
       const enabledPlatformsList = userConfig.platforms
         .filter(p => p.enabled && AI_PLATFORMS[p.id])
@@ -1367,18 +1091,6 @@
         }
       });
     };
-
-    if (globalSendBtn) {
-      globalSendBtn.addEventListener('click', () => triggerGlobalSend());
-    }
-    if (globalInput) {
-      globalInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          triggerGlobalSend();
-        }
-      });
-    }
 
     // 将方法暴露给 window，方便右键菜单直接调用
     window.__aiSearchProBroadcastQuery = triggerGlobalSend;
