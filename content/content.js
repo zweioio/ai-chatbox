@@ -3,10 +3,16 @@
 
   const AI_PLATFORMS = {
     doubao: { name: '豆包', url: 'https://www.doubao.com/chat/', icon: '👩‍💻' },
-    chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: '🤖' },
-    qianwen: { name: '千问', url: 'https://tongyi.aliyun.com/qianwen/', icon: '🔍' },
+    qianwen: { name: '千问', url: 'https://www.qianwen.com/', icon: '🔍' },
     deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: '🚀' },
-    kimi: { name: 'Kimi', url: 'https://kimi.moonshot.cn/', icon: '🌟' }
+    kimi: { name: 'Kimi', url: 'https://kimi.moonshot.cn/', icon: '🌟' },
+    chatglm: { name: '智谱清言', url: 'https://chatglm.cn/', icon: '💡' },
+    chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: '🤖' },
+    gemini: { name: 'Gemini', url: 'https://gemini.google.com/', icon: '✨' },
+    claude: { name: 'Claude', url: 'https://claude.ai/new', icon: '🧠' },
+    perplexity: { name: 'Perplexity', url: 'https://www.perplexity.ai/', icon: '🔎' },
+    copilot: { name: 'Copilot', url: 'https://copilot.microsoft.com/', icon: '💬' },
+    grok: { name: 'Grok', url: 'https://grok.com/', icon: '✖️' }
   };
 
   // 默认配置
@@ -22,7 +28,7 @@
   let isResizing = false;
   let activeAiUrl = ''; // 保存当前活跃对话的 URL
 
-  // 拦截搜索引擎首页的搜索事件，直接在 URL 中追加特殊标记，实现极速传参
+  // 拦截搜索引擎首页的搜索事件，只有在表单提交（回车或点击搜索按钮）时才记录并传递搜索词
   function initSearchInterception() {
     const host = window.location.hostname;
     const isHomePage = window.location.pathname === '/' && !window.location.search;
@@ -72,32 +78,27 @@
   }
 
   // 修改获取搜索词的逻辑，做到真正的同步、零延迟
+  // 只有当 URL 中真正包含搜索参数，或者是由首页拦截到提交事件时，才返回搜索词
   function getSearchQuery() {
-    // 1. 最高优先级：刚从首页跳转过来时，同步读取 sessionStorage
+    // 1. 最高优先级：刚从首页跳转过来时，同步读取 sessionStorage（这说明用户已经点击了搜索或按了回车）
     const fastQuery = sessionStorage.getItem('aiSearchProFastQuery');
     if (fastQuery) {
       sessionStorage.removeItem('aiSearchProFastQuery'); // 消费后立刻删除
       return fastQuery;
     }
 
-    // 2. 次优级：直接解析当前 URL 参数（DOM 可能还没渲染完，但 URL 已经有了）
+    // 2. 次优级：直接解析当前 URL 参数（URL 中有参数，说明已经是搜索结果页，且搜索已提交）
     const host = window.location.hostname;
     const url = new URL(window.location.href);
     
     if (host.includes('baidu.com')) {
-      // 对于百度 SPA，优先取输入框的值，因为 URL 可能没变，只是局部刷新
-      const input = document.querySelector('#kw');
-      if (input && input.value) return input.value;
       const wd = url.searchParams.get('wd') || url.searchParams.get('word');
       if (wd) return wd;
+      // 移除直接读取输入框的逻辑，因为输入框的值在未提交时也会变，导致提前触发
     } else if (host.includes('google.com')) {
-      const input = document.querySelector('textarea[name="q"], input[name="q"]');
-      if (input && input.value) return input.value;
       const q = url.searchParams.get('q');
       if (q) return q;
     } else if (host.includes('bing.com')) {
-      const input = document.querySelector('#sb_form_q');
-      if (input && input.value) return input.value;
       const q = url.searchParams.get('q');
       if (q) return q;
     }
@@ -138,8 +139,14 @@
     container.className = 'is-floating-mode';
     
     // 记录每个平台对应的 iframe 是否已经加载过
-    const loadedPlatforms = { [currentPlatform]: true };
-    const platformUrls = { [currentPlatform]: `${AI_PLATFORMS[currentPlatform].url}#q=${encodeURIComponent(query)}` };
+    const loadedPlatforms = {};
+    const platformUrls = {};
+    
+    // 立即加载所有已启用的平台，实现统一并发发送
+    enabledPlatforms.forEach(platformKey => {
+      loadedPlatforms[platformKey] = true;
+      platformUrls[platformKey] = `${AI_PLATFORMS[platformKey].url}#q=${encodeURIComponent(query)}`;
+    });
 
     container.innerHTML = `
       <div class="ai-sp-sidebar-resizer"></div>
@@ -204,6 +211,23 @@
           </button>
         </div>
       </div>
+
+      <!-- 全局快捷 Prompt & 输入区域 -->
+      <div class="ai-sp-global-input-container" style="padding: 10px; border-bottom: 1px solid var(--ai-sp-border, #e5e7eb); background: var(--ai-sp-bg, #ffffff); display: flex; flex-direction: column; gap: 8px;">
+        <div class="ai-sp-quick-prompts" style="display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; padding-bottom: 2px; scrollbar-width: none; -ms-overflow-style: none;">
+          <style>.ai-sp-quick-prompts::-webkit-scrollbar { display: none; }</style>
+          <span class="ai-sp-prompt-tag" data-prompt="请帮我翻译以下内容：" style="font-size: 12px; background: #e0f2fe; color: #1d4ed8; padding: 4px 8px; border-radius: 12px; cursor: pointer; user-select: none;">翻译</span>
+          <span class="ai-sp-prompt-tag" data-prompt="请总结以下内容的核心观点：" style="font-size: 12px; background: #dcfce7; color: #0369a1; padding: 4px 8px; border-radius: 12px; cursor: pointer; user-select: none;">总结</span>
+          <span class="ai-sp-prompt-tag" data-prompt="请帮我润色这段文字，使其更专业：" style="font-size: 12px; background: #f3e8ff; color: #15803d; padding: 4px 8px; border-radius: 12px; cursor: pointer; user-select: none;">润色</span>
+          <span class="ai-sp-prompt-tag" data-prompt="请详细解释一下：" style="font-size: 12px; background: #ffedd5; color: #7e22ce; padding: 4px 8px; border-radius: 12px; cursor: pointer; user-select: none;">解释</span>
+          <span class="ai-sp-prompt-tag" data-prompt="请帮我写一段代码，实现：" style="font-size: 12px; background: #fee2e2; color: #b91c1c; padding: 4px 8px; border-radius: 12px; cursor: pointer; user-select: none;">写代码</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="ai-sp-global-input" placeholder="追加提问或输入新搜索词..." style="flex: 1; padding: 6px 10px; border: 1px solid var(--ai-sp-border, #d1d5db); border-radius: 6px; font-size: 13px; outline: none; background: transparent; color: var(--ai-sp-text, #374151);">
+          <button id="ai-sp-global-send-btn" style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; transition: background 0.2s;">统一发送</button>
+        </div>
+      </div>
+
       <div class="ai-sp-platforms">
         ${enabledPlatforms.map(key => {
           const data = AI_PLATFORMS[key];
@@ -214,20 +238,26 @@
           </button>
         `}).join('')}
       </div>
-      <div class="ai-sp-iframe-content-area">
+      <div class="ai-sp-iframe-content-area" style="position: relative; width: 100%; height: 100%; overflow: hidden;">
         ${enabledPlatforms.map(platformKey => {
           const isCurrent = platformKey === currentPlatform;
           return `
-            <div class="ai-sp-iframe-container" id="ai-sp-container-${platformKey}" style="display: ${isCurrent ? 'block' : 'none'}; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-              <div class="ai-sp-loading" id="ai-sp-loading-${platformKey}">
+            <div class="ai-sp-iframe-container" id="ai-sp-container-${platformKey}" style="
+              position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+              opacity: ${isCurrent ? '1' : '0'};
+              pointer-events: ${isCurrent ? 'auto' : 'none'};
+              z-index: ${isCurrent ? '10' : '1'};
+              transition: opacity 0.2s;
+            ">
+              <div class="ai-sp-loading" id="ai-sp-loading-${platformKey}" style="display: ${isCurrent ? 'flex' : 'none'};">
                 <div class="ai-sp-spinner"></div>
                 <span>正在连接 ${AI_PLATFORMS[platformKey].name} 并输入问题...</span>
               </div>
               <iframe 
                 id="ai-sp-iframe-${platformKey}" 
                 data-platform="${platformKey}"
-                src="${isCurrent ? platformUrls[platformKey] : 'about:blank'}"
-                style="opacity: ${isCurrent ? '0' : '1'}; width: 100%; height: 100%; border: none;">
+                src="${platformUrls[platformKey]}"
+                style="opacity: 0; width: 100%; height: 100%; border: none;">
               </iframe>
             </div>
           `;
@@ -471,11 +501,18 @@
         // 隐藏当前 iframe，显示新的 iframe
         const oldContainer = document.getElementById(`ai-sp-container-${currentPlatform}`);
         const newContainer = document.getElementById(`ai-sp-container-${targetPlatform}`);
-        const newIframe = document.getElementById(`ai-sp-iframe-${targetPlatform}`);
         const newLoading = document.getElementById(`ai-sp-loading-${targetPlatform}`);
         
-        if (oldContainer) oldContainer.style.display = 'none';
-        if (newContainer) newContainer.style.display = 'block';
+        if (oldContainer) {
+          oldContainer.style.opacity = '0';
+          oldContainer.style.pointerEvents = 'none';
+          oldContainer.style.zIndex = '1';
+        }
+        if (newContainer) {
+          newContainer.style.opacity = '1';
+          newContainer.style.pointerEvents = 'auto';
+          newContainer.style.zIndex = '10';
+        }
 
         // 如果该平台还没加载过当前搜索词，则加载
         if (!loadedPlatforms[targetPlatform]) {
@@ -754,14 +791,17 @@
               const div = document.createElement('div');
               div.className = 'ai-sp-iframe-container';
               div.id = `ai-sp-container-${platformKey}`;
-              div.style.display = 'none';
               div.style.position = 'absolute';
               div.style.top = '0';
               div.style.left = '0';
               div.style.width = '100%';
               div.style.height = '100%';
+              div.style.opacity = '0';
+              div.style.pointerEvents = 'none';
+              div.style.zIndex = '1';
+              div.style.transition = 'opacity 0.2s';
               div.innerHTML = `
-                <div class="ai-sp-loading" id="ai-sp-loading-${platformKey}">
+                <div class="ai-sp-loading" id="ai-sp-loading-${platformKey}" style="display: none;">
                   <div class="ai-sp-spinner"></div>
                   <span>正在连接 ${AI_PLATFORMS[platformKey].name} 并输入问题...</span>
                 </div>
@@ -788,11 +828,14 @@
             // 更新显示状态
             const targetContainer = document.getElementById(`ai-sp-container-${platformKey}`);
             if (targetContainer) {
-              targetContainer.style.display = (platformKey === currentPlatform) ? 'block' : 'none';
+              const isCurrent = platformKey === currentPlatform;
+              targetContainer.style.opacity = isCurrent ? '1' : '0';
+              targetContainer.style.pointerEvents = isCurrent ? 'auto' : 'none';
+              targetContainer.style.zIndex = isCurrent ? '10' : '1';
             }
             
-            // 如果是当前选中的且没加载过，触发加载
-            if (platformKey === currentPlatform && !loadedPlatforms[platformKey]) {
+            // 如果被启用了且没加载过，立即触发加载，实现统一并发发送
+            if (!loadedPlatforms[platformKey]) {
               const currentQuery = getSearchQuery();
               if (currentQuery) {
                 const targetIframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
@@ -810,7 +853,9 @@
           } else {
             // 这个平台被禁用了，仅仅隐藏它，不销毁 iframe（保留状态，万一用户又打开了）
             if (iframeContainer) {
-              iframeContainer.style.display = 'none';
+              iframeContainer.style.opacity = '0';
+              iframeContainer.style.pointerEvents = 'none';
+              iframeContainer.style.zIndex = '1';
             }
           }
         });
@@ -839,8 +884,16 @@
           const newIframe = document.getElementById(`ai-sp-iframe-${targetPlatform}`);
           const newLoading = document.getElementById(`ai-sp-loading-${targetPlatform}`);
           
-          if (oldContainer) oldContainer.style.display = 'none';
-          if (newContainer) newContainer.style.display = 'block';
+          if (oldContainer) {
+            oldContainer.style.opacity = '0';
+            oldContainer.style.pointerEvents = 'none';
+            oldContainer.style.zIndex = '1';
+          }
+          if (newContainer) {
+            newContainer.style.opacity = '1';
+            newContainer.style.pointerEvents = 'auto';
+            newContainer.style.zIndex = '10';
+          }
 
           // 如果该平台还没加载过当前搜索词，则加载
           if (!loadedPlatforms[targetPlatform] && newIframe) {
@@ -878,76 +931,112 @@
     const webBtn = container.querySelector('#ai-sp-web-btn');
     if(webBtn) webBtn.addEventListener('click', openWeb);
 
-    // 监听 URL / 搜索词变化
-    let lastQuery = query;
+    // --- 全局快捷 Prompt & 输入处理 ---
+    const globalInput = container.querySelector('#ai-sp-global-input');
+    const globalSendBtn = container.querySelector('#ai-sp-global-send-btn');
+    const promptTags = container.querySelectorAll('.ai-sp-prompt-tag');
+
+    // 点击 prompt tag 自动填入
+    promptTags.forEach(tag => {
+      tag.addEventListener('click', () => {
+        const promptText = tag.dataset.prompt;
+        if (globalInput) {
+          globalInput.value = promptText + ' ' + globalInput.value;
+          globalInput.focus();
+        }
+      });
+    });
+
+    // 触发全局发送的方法
+    const triggerGlobalSend = (forceQuery) => {
+      const text = typeof forceQuery === 'string' ? forceQuery : (globalInput ? globalInput.value.trim() : '');
+      if (!text) return;
+      
+      if (globalInput) globalInput.value = ''; // 发送后清空
+      
+      const enabledPlatformsList = userConfig.platforms
+        .filter(p => p.enabled && AI_PLATFORMS[p.id])
+        .map(p => p.id);
+        
+      enabledPlatformsList.forEach(platformKey => {
+        const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
+        if (iframe) {
+          if (loadedPlatforms[platformKey]) {
+            try {
+              iframe.contentWindow.postMessage({
+                type: 'AI_SEARCH_PRO_NEW_QUERY',
+                query: text
+              }, '*');
+            } catch(e) {
+              console.warn('postMessage failed', e);
+            }
+          } else {
+            const loading = document.getElementById(`ai-sp-loading-${platformKey}`);
+            const newUrl = `${AI_PLATFORMS[platformKey].url}#q=${encodeURIComponent(text)}`;
+            platformUrls[platformKey] = newUrl;
+            iframe.style.opacity = '0';
+            if (loading) loading.style.display = 'flex';
+            iframe.src = platformUrls[platformKey];
+            loadedPlatforms[platformKey] = true;
+          }
+        }
+      });
+    };
+
+    if (globalSendBtn) {
+      globalSendBtn.addEventListener('click', () => triggerGlobalSend());
+    }
+    if (globalInput) {
+      globalInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          triggerGlobalSend();
+        }
+      });
+    }
+
+    // 将方法暴露给 window，方便右键菜单直接调用
+    window.__aiSearchProBroadcastQuery = triggerGlobalSend;
+    window.__aiSearchProToggleUI = (forceShow) => {
+      const isVisible = container.style.display !== 'none' && container.style.opacity !== '0';
+      if (isVisible && !forceShow) {
+        closeAll();
+      } else {
+        container.style.display = 'flex';
+        container.style.opacity = '1';
+        if (!container.classList.contains('is-sidebar-mode')) {
+          updateFloatingWindowPosition();
+        } else {
+          adjustPageLayout();
+        }
+      }
+    };
+
+    // 监听 URL / 搜索词变化 (只针对原生搜索引擎的输入)
+    let lastUrlQuery = getSearchQuery() || query;
     setInterval(() => {
-      // 在结果页重新输入时，获取到的新词
       const currentQuery = getSearchQuery();
       
-      // 检查 container 是否还在 DOM 中，理论上挂载到 html 上就不会被删了，但保险起见还是检测一下
+      if (!currentQuery) return;
+
       if (!document.getElementById('ai-sp-container')) {
-        // ... (注：为了保持简洁，此处的 fallback 可以保留)
         createUI(currentQuery, userConfig.platforms.filter(p => p.enabled).map(p => p.id));
         return;
       }
       
-      if (currentQuery && currentQuery !== lastQuery) {
-        lastQuery = currentQuery;
+      // 只有当搜索引擎的词真正发生变化时，才触发自动广播，防止与全局手动输入框冲突
+      if (currentQuery !== lastUrlQuery) {
+        lastUrlQuery = currentQuery;
         
-        // 确保容器存在
-        if (!container) return;
-        
-        // 重新显示容器并重置样式
         container.style.display = 'flex';
         container.style.opacity = '1';
-        
-        // 如果不是侧边栏模式，确保位置正确
         if (!container.classList.contains('is-sidebar-mode')) {
           updateFloatingWindowPosition();
         } else {
           adjustPageLayout();
         }
         
-        // 更新所有被启用的 iframe
-        const enabledPlatformsList = userConfig.platforms
-          .filter(p => p.enabled && AI_PLATFORMS[p.id])
-          .map(p => p.id);
-          
-        enabledPlatformsList.forEach(platformKey => {
-          const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
-          
-          if (iframe) {
-            // 无论哪个平台，都不再刷新整个 iframe（避免开启新对话）
-            // 而是通过 postMessage 将新的搜索词发送给 iframe 内部的注入脚本
-            // 让内部脚本把新词填入输入框并自动发送，从而在“当前对话”中继续
-            if (loadedPlatforms[platformKey]) {
-              // 确保 iframe 已经完全加载，并且通过 origin '*' 发送，因为跨域限制
-              try {
-                iframe.contentWindow.postMessage({
-                  type: 'AI_SEARCH_PRO_NEW_QUERY',
-                  query: currentQuery
-                }, '*');
-              } catch(e) {
-                console.warn('postMessage failed', e);
-              }
-            } else {
-              // 如果这个平台之前压根没加载过，那还是得加载一次
-              const loading = document.getElementById(`ai-sp-loading-${platformKey}`);
-              const newUrl = `${AI_PLATFORMS[platformKey].url}#q=${encodeURIComponent(currentQuery)}`;
-              
-              if (platformKey === currentPlatform) {
-                platformUrls[platformKey] = newUrl;
-                iframe.style.opacity = '0';
-                if (loading) loading.style.display = 'flex';
-                iframe.src = platformUrls[platformKey];
-                loadedPlatforms[platformKey] = true;
-              } else {
-                platformUrls[platformKey] = newUrl;
-                loadedPlatforms[platformKey] = false;
-              }
-            }
-          }
-        });
+        triggerGlobalSend(currentQuery);
       }
     }, 1000);
 
@@ -975,15 +1064,15 @@
     window.addEventListener('message', (event) => {
       if (event.data) {
         if (event.data.type === 'AI_SEARCH_PRO_LOADED') {
-          // 由于多个 iframe，我们通过遍历寻找正在显示的那个来隐藏 loading
-          const iframe = document.getElementById(`ai-sp-iframe-${currentPlatform}`);
-          const loading = document.getElementById(`ai-sp-loading-${currentPlatform}`);
-          if (iframe && loading) {
-            loading.style.display = 'none';
-            iframe.style.opacity = '1';
-          } else if (iframe) {
-            iframe.style.opacity = '1';
-          }
+          const iframes = document.querySelectorAll('.ai-sp-iframe-container iframe');
+          iframes.forEach(iframe => {
+            if (iframe.contentWindow === event.source) {
+              const platform = iframe.dataset.platform;
+              const loading = document.getElementById(`ai-sp-loading-${platform}`);
+              if (loading) loading.style.display = 'none';
+              iframe.style.opacity = '1';
+            }
+          });
         } else if (event.data.type === 'AI_SEARCH_PRO_URL_SYNC') {
           // 查找是哪个平台的 iframe 发来的消息
           const iframes = document.querySelectorAll('.ai-sp-iframe-container iframe');
@@ -1020,6 +1109,31 @@
 
   // 立即执行拦截
   initSearchInterception();
+
+  // 全局暴露一个触发查询的方法，方便外部调用（如右键菜单、全局输入框）
+  window.__aiSearchProBroadcastQuery = null;
+  window.__aiSearchProToggleUI = null;
+
+  // 监听扩展后台的消息（右键菜单、图标点击）
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'TOGGLE_UI') {
+      if (window.__aiSearchProToggleUI) {
+        window.__aiSearchProToggleUI();
+      } else {
+        createUI('', userConfig.platforms.filter(p => p.enabled).map(p => p.id));
+      }
+      sendResponse({status: "ok"});
+    } else if (request.action === 'SEARCH_FROM_CONTEXT_MENU') {
+      const text = request.text;
+      if (window.__aiSearchProBroadcastQuery) {
+        window.__aiSearchProToggleUI(true); // 强制显示
+        window.__aiSearchProBroadcastQuery(text);
+      } else {
+        createUI(text, userConfig.platforms.filter(p => p.enabled).map(p => p.id));
+      }
+      sendResponse({status: "ok"});
+    }
+  });
 
   // 初始化
   function init() {

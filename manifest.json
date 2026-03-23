@@ -6,10 +6,24 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "declarativeNetRequest",
+    "contextMenus"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "*://*.doubao.com/*", 
+    "https://kimi.moonshot.cn/*", 
+    "https://chatgpt.com/*", 
+    "https://chat.deepseek.com/*", 
+    "https://tongyi.aliyun.com/*", 
+    "https://*.qianwen.com/*",
+    "*://*.google.com/*",
+    "*://*.claude.ai/*",
+    "*://*.perplexity.ai/*",
+    "*://copilot.microsoft.com/*",
+    "*://grok.com/*",
+    "*://*.chatglm.cn/*"
   ],
   "action": {
     "default_title": "OmniAI Search"
@@ -17,13 +31,19 @@
   "background": {
     "service_worker": "background/background.js"
   },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "rules",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
   "content_scripts": [
     {
       "matches": [
-        "*://*.google.com/search*",
-        "*://*.google.com.hk/search*",
-        "*://*.baidu.com/s*",
-        "*://*.baidu.com/search*"
+        "<all_urls>"
       ],
       "js": ["content/content.js"],
       "css": ["content/content.css"],
@@ -31,10 +51,18 @@
     },
     {
       "matches": [
-        "*://*.doubao.com/*",
-        "*://chatgpt.com/*",
-        "*://*.qianwen.com/*",
-        "*://chat.deepseek.com/*"
+        "*://*.doubao.com/*", 
+        "https://kimi.moonshot.cn/*", 
+        "https://chatgpt.com/*", 
+        "https://chat.deepseek.com/*", 
+        "https://tongyi.aliyun.com/*", 
+        "https://*.qianwen.com/*",
+        "*://*.google.com/*",
+        "*://*.claude.ai/*",
+        "*://*.perplexity.ai/*",
+        "*://copilot.microsoft.com/*",
+        "*://grok.com/*",
+        "*://*.chatglm.cn/*"
       ],
       "js": ["content/ai-inject.js"],
       "all_frames": true,
