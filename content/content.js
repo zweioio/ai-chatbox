@@ -2,17 +2,18 @@
   if (window.self !== window.top) return; // 不在 iframe 中运行
 
   const AI_PLATFORMS = {
-    doubao: { name: '豆包', url: 'https://www.doubao.com/chat/', icon: '👩‍💻' },
-    qianwen: { name: '千问', url: 'https://www.qianwen.com/', icon: '🔍' },
-    deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: '🚀' },
-    kimi: { name: 'Kimi', url: 'https://kimi.moonshot.cn/', icon: '🌟' },
-    chatglm: { name: '智谱清言', url: 'https://chatglm.cn/', icon: '💡' },
-    chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: '🤖' },
-    gemini: { name: 'Gemini', url: 'https://gemini.google.com/', icon: '✨' },
-    claude: { name: 'Claude', url: 'https://claude.ai/new', icon: '🧠' },
-    perplexity: { name: 'Perplexity', url: 'https://www.perplexity.ai/', icon: '🔎' },
-    copilot: { name: 'Copilot', url: 'https://copilot.microsoft.com/', icon: '💬' },
-    grok: { name: 'Grok', url: 'https://grok.com/', icon: '✖️' }
+    doubao: { name: '豆包', url: 'https://www.doubao.com/chat/', icon: `<img src="${chrome.runtime.getURL('assets/doubao.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/doubao.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    qianwen: { name: '千问', url: 'https://www.qianwen.com/', icon: `<img src="${chrome.runtime.getURL('assets/qianwen.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/qianwen.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    yuanbao: { name: '元宝', url: 'https://yuanbao.tencent.com/chat/naQivTmsDa', icon: `<img src="${chrome.runtime.getURL('assets/yuanbao.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/yuanbao.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    kimi: { name: 'Kimi', url: 'https://kimi.moonshot.cn/', icon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    chatglm: { name: '智谱清言', url: 'https://chatglm.cn/main/alltoolsdetail?lang=zh', icon: `<img src="${chrome.runtime.getURL('assets/chatglm.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/chatglm.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: `<img src="${chrome.runtime.getURL('assets/chatgpt.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/chatgpt.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    gemini: { name: 'Gemini', url: 'https://gemini.google.com/', icon: `<img src="${chrome.runtime.getURL('assets/gemini.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/gemini.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    claude: { name: 'Claude', url: 'https://claude.ai/new', icon: `<img src="${chrome.runtime.getURL('assets/claude.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/claude.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    perplexity: { name: 'Perplexity', url: 'https://www.perplexity.ai/', icon: `<img src="${chrome.runtime.getURL('assets/perplexity.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/perplexity.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    copilot: { name: 'Copilot', url: 'https://copilot.microsoft.com/', icon: `<img src="${chrome.runtime.getURL('assets/copilot.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/copilot.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    grok: { name: 'Grok', url: 'https://grok.com/', icon: `<img src="${chrome.runtime.getURL('assets/grok.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/grok.png')}" style="width:32px;height:32px;vertical-align:middle;">` }
   };
 
   // 默认配置
@@ -150,19 +151,21 @@
     });
 
     container.innerHTML = `
+      <!-- 侧边栏拖拽调整宽度的区域 -->
       <div class="ai-sp-sidebar-resizer"></div>
       
       <!-- 设置页面面板 -->
       <div class="ai-sp-settings-panel" id="ai-sp-settings-panel" style="display: none;">
         <div class="ai-sp-settings-header">
           <button class="ai-sp-settings-back-btn" id="ai-sp-settings-back-btn" title="返回">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 10H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M9 4L3 10L9 16" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
           </button>
           <span>设置</span>
+          <div style="flex: 1;"></div>
+          <button class="ai-sp-settings-save-btn" id="ai-sp-settings-save-btn">保存</button>
         </div>
         <div class="ai-sp-settings-content">
           <!-- 平台管理 -->
-          <div class="ai-sp-settings-section-title">AI 助手管理 (拖拽排序)</div>
           <div class="ai-sp-platform-list" id="ai-sp-platform-list" style="margin-bottom: 24px;">
             ${userConfig.platforms.map(p => {
               if(!AI_PLATFORMS[p.id]) return '';
@@ -170,11 +173,15 @@
               return `
                 <div class="ai-sp-platform-item" data-id="${p.id}" draggable="true">
                   <div class="ai-sp-platform-drag-handle">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M3 10H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M3 15H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                    <span class="ai-sp-tooltip">按住拖拽排序</span>
                   </div>
                   <div class="ai-sp-platform-info">
-                    <span>${data.icon}</span>
-                    <span>${data.name}</span>
+                    <span>${data.settingsIcon}</span>
+                    <div class="ai-sp-platform-info-text">
+                      <span>${data.name}</span>
+                      <span class="ai-sp-platform-url">${new URL(data.url).hostname}</span>
+                    </div>
                   </div>
                   <label class="ai-sp-switch">
                     <input type="checkbox" class="ai-sp-platform-toggle" data-id="${p.id}" ${p.enabled ? 'checked' : ''}>
@@ -185,51 +192,63 @@
             }).join('')}
           </div>
         </div>
-        <div class="ai-sp-settings-footer">
-          <button class="ai-sp-settings-save-btn" id="ai-sp-settings-save-btn">保存并应用</button>
-        </div>
       </div>
       
       <div class="ai-sp-header">
-        <div class="ai-sp-title">
-          <div class="ai-sp-drag-handle" title="按住拖拽">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
-          </div>
-          <span class="ai-sp-logo">✦</span>
-          OmniAI
-        </div>
-        <div class="ai-sp-header-controls">
-          <button id="ai-sp-split-mode-btn" title="双栏对比模式">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line></svg>
-          </button>
-          <button id="ai-sp-theme-btn" title="切换深浅色模式">
-            <svg class="ai-sp-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: ${userConfig.theme === 'dark' ? 'none' : 'block'};"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-            <svg class="ai-sp-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: ${userConfig.theme === 'dark' ? 'block' : 'none'};"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-          </button>
-          <button id="ai-sp-web-btn" title="在网页打开">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-          </button>
-          <button id="ai-sp-toggle-mode-btn" title="在侧边栏打开">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line></svg>
-          </button>
-          <button id="ai-sp-settings-btn" title="设置">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          </button>
-          <button id="ai-sp-close-btn" title="关闭">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
-        </div>
+      <div class="ai-sp-header-left">
+        <button id="ai-sp-drag-btn" class="ai-sp-drag-handle">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="pointer-events: none;"><rect x="4" y="4" width="2" height="2" fill="currentColor"/><rect x="4" y="9" width="2" height="2" fill="currentColor"/><rect x="4" y="14" width="2" height="2" fill="currentColor"/><rect x="9" y="4" width="2" height="2" fill="currentColor"/><rect x="9" y="9" width="2" height="2" fill="currentColor"/><rect x="9" y="14" width="2" height="2" fill="currentColor"/><rect x="14" y="4" width="2" height="2" fill="currentColor"/><rect x="14" y="9" width="2" height="2" fill="currentColor"/><rect x="14" y="14" width="2" height="2" fill="currentColor"/></svg>
+          <span class="ai-sp-tooltip">按住拖拽</span>
+        </button>
+        <img src="${chrome.runtime.getURL('icons/icon48.png')}" style="width: 18px; height: 18px; margin-right: 6px;">
+        <span style="font-size: 16px; font-weight: 600; color: var(--ai-sp-text);">OmniAI</span>
       </div>
+      <div class="ai-sp-header-controls">
+        <button id="ai-sp-theme-btn">
+          <svg class="ai-sp-icon-sun" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: ${userConfig.theme === 'dark' ? 'block' : 'none'};"><circle cx="10" cy="10" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M10 2V4" stroke="currentColor" stroke-width="1.2"/><path d="M10 16V18" stroke="currentColor" stroke-width="1.2"/><path d="M15.6583 4.33961L14.2441 5.75383" stroke="currentColor" stroke-width="1.2"/><path d="M5.75879 14.2391L4.34458 15.6533" stroke="currentColor" stroke-width="1.2"/><path d="M18.005 9.995L16.005 9.995" stroke="currentColor" stroke-width="1.2"/><path d="M4.005 9.995L2.005 9.995" stroke="currentColor" stroke-width="1.2"/><path d="M15.6654 15.6533L14.2512 14.2391" stroke="currentColor" stroke-width="1.2"/><path d="M5.76587 5.75381L4.35166 4.3396" stroke="currentColor" stroke-width="1.2"/></svg>
+          <svg class="ai-sp-icon-moon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: ${userConfig.theme === 'dark' ? 'none' : 'block'};"><path d="M7.1377 3.61133L7.7259 3.72971C7.71064 3.50936 7.62767 3.28271 7.45202 3.14246C7.27637 3.00221 7.03707 2.97189 6.832 3.06391L7.1377 3.61133ZM16.8613 11.3877L17.4495 11.506C17.4939 11.2857 17.4113 11.059 17.2357 10.9188C17.0601 10.7786 16.8208 10.7483 16.6157 10.8403L16.8613 11.3877ZM7.1377 3.61133L6.54949 3.49295C6.45135 3.98057 6.4 4.48461 6.4 5H7H7.6C7.6 4.56449 7.64337 4.13976 7.7259 3.72971L7.1377 3.61133ZM7 5H6.4C6.4 9.19736 9.80264 12.6 14 12.6V12V11.4C10.4654 11.4 7.6 8.53462 7.6 5H7ZM14 12V12.6C15.107 12.6 16.1583 12.3607 17.1069 11.9351L16.8613 11.3877L16.6157 10.8403C15.8167 11.1987 14.9324 11.4 14 11.4V12ZM16.8613 11.3877L16.2731 11.2694C15.6844 14.196 13.0993 16.4 10 16.4V17V17.6C13.6823 17.6 16.7504 14.9817 17.4495 11.506L16.8613 11.3877ZM10 17V16.4C6.46538 16.4 3.6 13.5346 3.6 10H3H2.4C2.4 14.1974 5.80264 17.6 10 17.6V17ZM3 10H3.6C3.6 7.39896 5.15221 5.15989 7.38333 4.15874L7.1377 3.61133L6.89206 3.06391C4.24581 4.25133 2.4 6.90886 2.4 10H3Z" fill="currentColor"/></svg>
+          <span class="ai-sp-tooltip">${userConfig.theme === 'dark' ? '切换浅色模式' : '切换深色模式'}</span>
+        </button>
+        <button id="ai-sp-split-mode-btn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.00012" y="3.00003" width="13.9999" height="13.9999" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M10 3V17" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span class="ai-sp-tooltip">对话结果对比</span>
+        </button>
+        <button id="ai-sp-web-btn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3.00003" width="13.9999" height="13.9999" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M3 7H17" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 5H8.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          <span class="ai-sp-tooltip">网页打开</span>
+        </button>
+        <button id="ai-sp-toggle-mode-btn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.00012" y="3.00003" width="13.9999" height="13.9999" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M13 3V17" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span class="ai-sp-tooltip" id="ai-sp-toggle-mode-tooltip">侧边栏打开</span>
+        </button>
+        <button id="ai-sp-settings-btn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 6.5H18" stroke="currentColor" stroke-width="1.2"/><path d="M2 6.5H5" stroke="currentColor" stroke-width="1.2"/><path d="M2 13.5H8" stroke="currentColor" stroke-width="1.2"/><path d="M15 13.5H18" stroke="currentColor" stroke-width="1.2"/><circle cx="7.5" cy="6.5" r="2.5" stroke="currentColor" stroke-width="1.2"/><circle cx="12.5" cy="13.5" r="2.5" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span class="ai-sp-tooltip">设置</span>
+        </button>
+        <button id="ai-sp-close-btn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.6569 4.34314L4.34315 15.6568" stroke="currentColor" stroke-width="1.2"/><path d="M15.6569 15.6569L4.34315 4.34315" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span class="ai-sp-tooltip">关闭</span>
+        </button>
+      </div>
+    </div>
 
-      <div class="ai-sp-platforms">
-        ${enabledPlatforms.map(key => {
-          const data = AI_PLATFORMS[key];
-          return `
-          <button class="ai-sp-platform-btn ${currentPlatform === key ? 'active' : ''}" data-platform="${key}">
-            <span class="ai-sp-platform-icon">${data.icon}</span>
-            ${data.name}
-          </button>
-        `}).join('')}
+      <div class="ai-sp-platforms-wrapper">
+        <button class="ai-sp-platforms-scroll-btn is-disabled" id="ai-sp-scroll-left">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 4L6 10L12 16" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="ai-sp-platforms">
+          ${enabledPlatforms.map(key => {
+            const data = AI_PLATFORMS[key];
+            return `
+            <button class="ai-sp-platform-btn ${currentPlatform === key ? 'active' : ''}" data-platform="${key}">
+              <span class="ai-sp-platform-icon" style="width: 24px; height: 24px;">${data.icon}</span>
+              <span class="ai-sp-platform-name">${data.name}</span>
+            </button>
+          `}).join('')}
+        </div>
+        <button class="ai-sp-platforms-scroll-btn is-disabled" id="ai-sp-scroll-right">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 4L14 10L8 16" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+        </button>
       </div>
       <div class="ai-sp-iframe-content-area" style="position: relative; width: 100%; height: 100%; overflow: hidden;">
         ${enabledPlatforms.map(platformKey => {
@@ -523,6 +542,8 @@
         
         // 点击后让当前按钮滚动到可视区域内居中
         btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        setTimeout(() => ensurePlatformBtnVisible(btn), 60);
+        setTimeout(() => ensurePlatformBtnVisible(btn), 220);
       });
     });
 
@@ -557,9 +578,9 @@
           container.style.removeProperty('bottom');
           
           const toggleBtn = document.getElementById('ai-sp-toggle-mode-btn');
+          const toggleTooltip = document.getElementById('ai-sp-toggle-mode-tooltip');
           if(toggleBtn) {
-            toggleBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>`;
-            toggleBtn.title = "在小窗打开";
+            toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.0001 16.9999H15C16.1046 16.9999 17 16.1045 17 14.9999V5.00003C17 3.89546 16.1046 3.00003 15 3.00003H5.00012C3.89555 3.00003 3.00012 3.89546 3.00012 5.00003V6.99999" stroke="currentColor" stroke-width="1.2"/><path d="M3 10C3 9.44772 3.44772 9 4 9H8C8.55228 9 9 9.44772 9 10V16C9 16.5523 8.55228 17 8 17H4C3.44772 17 3 16.5523 3 16V10Z" stroke="currentColor" stroke-width="1.2"/></svg><span class="ai-sp-tooltip">小窗打开</span>`;
           }
         } else {
           // 切换回小窗
@@ -572,8 +593,7 @@
           
           const toggleBtn = document.getElementById('ai-sp-toggle-mode-btn');
           if(toggleBtn) {
-            toggleBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line></svg>`;
-            toggleBtn.title = "在侧边栏打开";
+            toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.00012" y="3.00003" width="13.9999" height="13.9999" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M13 3V17" stroke="currentColor" stroke-width="1.2"/></svg><span class="ai-sp-tooltip" id="ai-sp-toggle-mode-tooltip">侧边栏打开</span>`;
           }
           
           updateFloatingWindowPosition();
@@ -613,11 +633,15 @@
         return `
           <div class="ai-sp-platform-item" data-id="${p.id}" draggable="true">
             <div class="ai-sp-platform-drag-handle">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M3 10H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M3 15H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                  <span class="ai-sp-tooltip">按住拖拽排序</span>
             </div>
             <div class="ai-sp-platform-info">
-              <span>${data.icon}</span>
-              <span>${data.name}</span>
+              <span>${data.settingsIcon}</span>
+              <div class="ai-sp-platform-info-text">
+                <span>${data.name}</span>
+                <span class="ai-sp-platform-url">${new URL(data.url).hostname}</span>
+              </div>
             </div>
             <label class="ai-sp-switch">
               <input type="checkbox" class="ai-sp-platform-toggle" data-id="${p.id}" ${p.enabled ? 'checked' : ''}>
@@ -759,13 +783,15 @@
           const data = AI_PLATFORMS[key];
           return `
           <button class="ai-sp-platform-btn ${currentPlatform === key ? 'active' : ''}" data-platform="${key}">
-            <span class="ai-sp-platform-icon">${data.icon}</span>
-            ${data.name}
+            <span class="ai-sp-platform-icon" style="width: 24px; height: 24px;">${data.icon}</span>
+            <span class="ai-sp-platform-name">${data.name}</span>
           </button>
         `}).join('');
         
         // 重新绑定 Tab 点击事件
         bindPlatformTabEvents();
+        // 更新滚动按钮状态
+        setTimeout(updateScrollButtons, 100);
       }
 
       // 2. 动态管理 iframe 容器
@@ -895,6 +921,60 @@
       });
     }
 
+    // 平台左右滚动逻辑
+    const platformsContainer = container.querySelector('.ai-sp-platforms');
+    const scrollLeftBtn = container.querySelector('#ai-sp-scroll-left');
+    const scrollRightBtn = container.querySelector('#ai-sp-scroll-right');
+
+    function ensurePlatformBtnVisible(btn) {
+      if (!platformsContainer || !btn) return;
+      const safeRight = 40;
+      const safeLeft = 40;
+      const containerRect = platformsContainer.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      if (btnRect.right > containerRect.right - safeRight) {
+        const delta = btnRect.right - (containerRect.right - safeRight);
+        platformsContainer.scrollBy({ left: delta, behavior: 'smooth' });
+      } else if (btnRect.left < containerRect.left + safeLeft) {
+        const delta = btnRect.left - (containerRect.left + safeLeft);
+        platformsContainer.scrollBy({ left: delta, behavior: 'smooth' });
+      }
+    }
+
+    function updateScrollButtons() {
+      if (!platformsContainer || !scrollLeftBtn || !scrollRightBtn) return;
+      const canScroll = platformsContainer.scrollWidth > platformsContainer.clientWidth;
+      const canScrollLeft = canScroll && platformsContainer.scrollLeft > 0;
+      const isAtEnd = Math.abs(platformsContainer.scrollWidth - platformsContainer.clientWidth - platformsContainer.scrollLeft) <= 1;
+      const canScrollRight = canScroll && !isAtEnd;
+
+      scrollLeftBtn.classList.toggle('is-disabled', !canScrollLeft);
+      scrollRightBtn.classList.toggle('is-disabled', !canScrollRight);
+    }
+
+    if (platformsContainer) {
+      platformsContainer.addEventListener('scroll', updateScrollButtons);
+      window.addEventListener('resize', updateScrollButtons);
+      // 初始化检查
+      setTimeout(updateScrollButtons, 100);
+    }
+
+    if (scrollLeftBtn) {
+      scrollLeftBtn.addEventListener('click', () => {
+        if (scrollLeftBtn.classList.contains('is-disabled')) return;
+        const step = Math.max(180, Math.floor(platformsContainer.clientWidth * 0.75));
+        platformsContainer.scrollBy({ left: -step, behavior: 'smooth' });
+      });
+    }
+
+    if (scrollRightBtn) {
+      scrollRightBtn.addEventListener('click', () => {
+        if (scrollRightBtn.classList.contains('is-disabled')) return;
+        const step = Math.max(180, Math.floor(platformsContainer.clientWidth * 0.75));
+        platformsContainer.scrollBy({ left: step, behavior: 'smooth' });
+      });
+    }
+
     // 平台切换事件绑定辅助函数
     function bindPlatformTabEvents() {
       const platformBtns = container.querySelectorAll('.ai-sp-platform-btn');
@@ -956,6 +1036,8 @@
           
           // 点击后让当前按钮滚动到可视区域内居中
           newBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          setTimeout(() => ensurePlatformBtnVisible(newBtn), 60);
+          setTimeout(() => ensurePlatformBtnVisible(newBtn), 220);
         });
       });
     }
@@ -984,12 +1066,16 @@
         
         if (userConfig.theme === 'dark') {
           container.setAttribute('data-ai-sp-theme', 'dark');
-          themeBtn.querySelector('.ai-sp-icon-sun').style.display = 'none';
-          themeBtn.querySelector('.ai-sp-icon-moon').style.display = 'block';
-        } else {
-          container.removeAttribute('data-ai-sp-theme');
           themeBtn.querySelector('.ai-sp-icon-sun').style.display = 'block';
           themeBtn.querySelector('.ai-sp-icon-moon').style.display = 'none';
+          const themeTip = themeBtn.querySelector('.ai-sp-tooltip');
+          if (themeTip) themeTip.textContent = '切换浅色模式';
+        } else {
+          container.removeAttribute('data-ai-sp-theme');
+          themeBtn.querySelector('.ai-sp-icon-sun').style.display = 'none';
+          themeBtn.querySelector('.ai-sp-icon-moon').style.display = 'block';
+          const themeTip = themeBtn.querySelector('.ai-sp-tooltip');
+          if (themeTip) themeTip.textContent = '切换深色模式';
         }
         
         // 跨域向所有已加载的 iframe 发送主题切换消息
@@ -1020,34 +1106,22 @@
     if (splitModeBtn) {
       splitModeBtn.addEventListener('click', () => {
         const enabledPlatformsList = userConfig.platforms.filter(p => p.enabled).map(p => p.id);
-        if (enabledPlatformsList.length < 2) {
-          alert('请至少启用两个AI助手才能使用双栏对比模式');
+        const comparePlatforms = enabledPlatformsList.slice(0, 4);
+        if (comparePlatforms.length < 2) {
+          alert('请至少启用两个AI助手才能使用对话结果对比');
           return;
         }
-
-        isSplitMode = !isSplitMode;
-        const contentArea = container.querySelector('.ai-sp-iframe-content-area');
-        
-        if (isSplitMode) {
-          container.classList.add('is-split-mode');
-          contentArea.classList.add('is-split-mode');
-          splitModeBtn.style.color = 'var(--ai-sp-primary)';
-          
-          // 确定第二个平台 (当前平台的下一个，如果到底了就选第一个)
-          const currentIndex = enabledPlatformsList.indexOf(currentPlatform);
-          splitSecondaryPlatform = enabledPlatformsList[(currentIndex + 1) % enabledPlatformsList.length];
-          
-          // 更新 UI 显示状态
-          updateIframeDisplay();
-        } else {
-          container.classList.remove('is-split-mode');
-          contentArea.classList.remove('is-split-mode');
-          splitModeBtn.style.color = 'currentColor';
-          splitSecondaryPlatform = null;
-          
-          // 恢复单栏显示状态
-          updateIframeDisplay();
-        }
+        const queryText = getSearchQuery() || query || '';
+        const sessionUrls = {};
+        enabledPlatformsList.forEach((key) => {
+          const iframe = document.getElementById(`ai-sp-iframe-${key}`);
+          const src = iframe && iframe.src ? iframe.src : (platformUrls[key] || AI_PLATFORMS[key].url);
+          sessionUrls[key] = src;
+        });
+        const compareUrl = chrome.runtime.getURL(
+          `compare/compare.html#q=${encodeURIComponent(queryText)}&platforms=${encodeURIComponent(comparePlatforms.join(','))}&enabled=${encodeURIComponent(enabledPlatformsList.join(','))}&urls=${encodeURIComponent(JSON.stringify(sessionUrls))}&theme=${encodeURIComponent(userConfig.theme || 'light')}`
+        );
+        window.open(compareUrl, '_blank');
       });
     }
 
@@ -1137,7 +1211,7 @@
       }
     }, 1000);
 
-    // 监听扩展图标点击唤起侧边栏或小窗
+    // 监听扩展图标点击唤起侧边栏
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.action === 'TOGGLE_UI') {
         const isVisible = container.style.display !== 'none' && container.style.opacity !== '0';
@@ -1145,12 +1219,13 @@
         if (isVisible) {
           closeAll();
         } else {
-          container.style.display = 'flex';
-          container.style.opacity = '1';
+          // 强制切换到侧边栏模式
           if (!container.classList.contains('is-sidebar-mode')) {
-            updateFloatingWindowPosition();
+             switchMode(true);
           } else {
-            adjustPageLayout();
+             container.style.display = 'flex';
+             container.style.opacity = '1';
+             adjustPageLayout();
           }
         }
         sendResponse({status: "ok"});
