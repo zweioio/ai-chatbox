@@ -3,18 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OmniAI 对话结果对比</title>
+  <title>OmniAI 内容对比</title>
   <link rel="stylesheet" href="./compare.css" />
 </head>
 <body>
   <div class="cmp-app">
     <header class="cmp-header">
       <div></div>
-      <div id="cmp-query-title" class="cmp-center-title"></div>
+      <div class="cmp-center-block">
+        <div id="cmp-query-title" class="cmp-center-title"></div>
+        <div id="cmp-restore-summary" class="cmp-restore-summary"></div>
+      </div>
       <div class="cmp-header-actions">
         <span id="cmp-count" class="cmp-count">0/4</span>
         <select id="cmp-platform-select" class="cmp-select"></select>
-        <button id="cmp-add-btn" class="cmp-btn">添加AI窗口</button>
+        <button id="cmp-add-btn" class="cmp-btn cmp-add">
+          <img src="../icons/compare-add-window.svg" width="18" height="18" alt="add" />
+          <span>添加窗口</span>
+        </button>
+        <button id="cmp-panel-toggle" class="cmp-toggle">
+          <img src="../icons/compare-diff-toggle.svg" width="18" height="18" alt="toggle" />
+          <span class="cmp-tooltip cmp-tooltip-right">收起差异高亮</span>
+        </button>
       </div>
     </header>
 
@@ -23,11 +33,17 @@
       <aside id="cmp-panel" class="cmp-side">
         <div class="cmp-side-head">
           <div class="cmp-side-title">差异高亮</div>
-          <button id="cmp-refresh-btn" class="cmp-btn cmp-refresh">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10C16 13.3137 13.3137 16 10 16C6.68629 16 4 13.3137 4 10C4 8.13538 4.85115 6.46954 6.18519 5.36958" stroke="currentColor" stroke-width="1.3"/><path d="M7 4H4V7" stroke="currentColor" stroke-width="1.3"/></svg>
-            <span>刷新高亮</span>
-          </button>
-          <button id="cmp-panel-toggle" class="cmp-toggle">▸</button>
+          <div class="cmp-side-head-actions" style="display: flex; align-items: center; gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ai-sp-text-light); cursor: pointer;">
+              <input type="checkbox" id="cmp-diff-only-toggle" style="margin: 0; cursor: pointer;">
+              <span>只看差异</span>
+            </label>
+            <button id="cmp-refresh-btn" class="cmp-btn cmp-refresh">
+              <img src="../icons/compare-refresh.svg" width="18" height="18" alt="refresh" />
+              <span>刷新</span>
+              <span class="cmp-tooltip">刷新高亮</span>
+            </button>
+          </div>
         </div>
         <div id="cmp-panel-body" class="cmp-panel-body">
           <div class="cmp-legend">

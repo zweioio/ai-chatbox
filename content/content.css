@@ -189,6 +189,7 @@
   background: transparent;
   border: none;
   box-shadow: none;
+  position: relative;
 }
 
 #ai-sp-container.is-sidebar-mode .ai-sp-drag-handle {
@@ -258,7 +259,8 @@
 .ai-sp-tooltip {
   position: absolute;
   left: 50%;
-  bottom: -30px;
+  top: calc(100% + 4px);
+  bottom: auto;
   transform: translateX(-50%);
   background: #fff;
   color: #374151;

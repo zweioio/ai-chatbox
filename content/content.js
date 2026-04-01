@@ -211,7 +211,7 @@
         </button>
         <button id="ai-sp-split-mode-btn">
           <img src="${chrome.runtime.getURL('icons/split.svg')}" style="width:20px;height:20px;" />
-          <span class="ai-sp-tooltip">对话结果对比</span>
+          <span class="ai-sp-tooltip">内容对比</span>
         </button>
         <button id="ai-sp-web-btn">
           <img src="${chrome.runtime.getURL('icons/web.svg')}" style="width:20px;height:20px;" />
@@ -1105,9 +1105,33 @@
     if (splitModeBtn) {
       splitModeBtn.addEventListener('click', () => {
         const enabledPlatformsList = userConfig.platforms.filter(p => p.enabled).map(p => p.id);
-        const comparePlatforms = enabledPlatformsList.slice(0, 4);
+        
+        // 获取所有已经加载（即打开过）的平台
+        let comparePlatforms = enabledPlatformsList.filter(id => loadedPlatforms[id]);
+        
+        // 确保当前选中的平台包含在内
+        if (!comparePlatforms.includes(currentPlatform)) {
+          comparePlatforms.push(currentPlatform);
+        }
+        
+        // 按照用户设置的排序重新排序（enabledPlatformsList 已经是用户排序好的）
+        comparePlatforms = enabledPlatformsList.filter(id => comparePlatforms.includes(id));
+
+        if (comparePlatforms.length > 4) {
+          comparePlatforms = comparePlatforms.slice(0, 4);
+        } else if (comparePlatforms.length < 2) {
+          // 如果打开的少于2个，为了对比页面，我们还是补充到2个（或者使用全部可用的前几个，这里根据用户逻辑：至少显示2个？）
+          // 用户的意思是：如果在小窗打开了豆包和千问，对比页就显示豆包和千问。
+          // 如果只打开了一个，我们为了对比功能，默认再补一个。
+          const needed = 2 - comparePlatforms.length;
+          const additional = enabledPlatformsList.filter(id => !comparePlatforms.includes(id)).slice(0, needed);
+          comparePlatforms = comparePlatforms.concat(additional);
+          // 再次按用户排序
+          comparePlatforms = enabledPlatformsList.filter(id => comparePlatforms.includes(id));
+        }
+
         if (comparePlatforms.length < 2) {
-          alert('请至少启用两个AI助手才能使用对话结果对比');
+          alert('请至少启用两个AI助手才能使用内容对比');
           return;
         }
         const queryText = getSearchQuery() || query || '';

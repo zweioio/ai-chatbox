@@ -30,8 +30,66 @@
     return '';
   }
 
+  function ensureHostLayoutStyle() {
+    const host = window.location.hostname;
+    const styleId = 'ai-sp-injected-style';
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement('style');
+    style.id = styleId;
+    let css = '';
+    if (host.includes('deepseek.com')) {
+      css += `
+        [role="dialog"] { display: none !important; opacity: 0 !important; pointer-events: none !important; }
+      `;
+    } else if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com') || host.includes('yuanbao.tencent.com')) {
+      css += `
+        .layout-sider { display: none !important; width: 0 !important; }
+        .layout-content { width: 100% !important; max-width: 100% !important; }
+      `;
+    }
+    style.innerHTML = css;
+    if (document.head) document.head.appendChild(style);
+  }
+
+  function applyQianwenFallbackLayout() {
+    const host = window.location.hostname;
+    if (!(host.includes('qianwen.com') || host.includes('tongyi.aliyun.com'))) return;
+    
+    const setStyle = (el, prop, value) => {
+      if (el.style.getPropertyValue(prop) !== value) {
+        el.style.setProperty(prop, value, 'important');
+      }
+    };
+
+    const sidebars = document.querySelectorAll('.layout-sider, .ant-layout-sider, aside[class*="sider"], div[class*="sider"]');
+    sidebars.forEach(el => {
+      setStyle(el, 'display', 'none');
+      setStyle(el, 'width', '0px');
+      setStyle(el, 'min-width', '0px');
+      setStyle(el, 'flex', '0 0 0px');
+    });
+    const contents = document.querySelectorAll('.layout-content, .ant-layout-content, main[class*="layout"], div[class*="layout-content"]');
+    contents.forEach(el => {
+      setStyle(el, 'width', '100%');
+      setStyle(el, 'max-width', '100%');
+      setStyle(el, 'min-width', '0px');
+      setStyle(el, 'flex', '1 1 auto');
+    });
+    const editors = document.querySelectorAll('#chat-input, textarea, div[data-slate-editor="true"][contenteditable="true"], div[role="textbox"][contenteditable="true"]');
+    editors.forEach(el => {
+      setStyle(el, 'max-width', '100%');
+      const wrap = el.closest('form, [class*="input"], [class*="editor"], [class*="chat"], [class*="content"]');
+      if (wrap) {
+        setStyle(wrap, 'max-width', '100%');
+        setStyle(wrap, 'width', '100%');
+        setStyle(wrap, 'min-width', '0px');
+      }
+    });
+  }
+
   function injectQuery() {
     if (hasInjected) return;
+    ensureHostLayoutStyle();
     
     const query = getQueryFromHash();
     if (!query) return;
@@ -48,28 +106,6 @@
 
     const host = window.location.hostname;
     
-    // --- 注入 CSS 隐藏各种烦人的侧边栏、弹窗 ---
-    const styleId = 'ai-sp-injected-style';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      let css = '';
-      if (host.includes('deepseek.com')) {
-        // DeepSeek：隐藏对话框弹窗和侧边栏
-        css += `
-          [role="dialog"] { display: none !important; opacity: 0 !important; pointer-events: none !important; }
-        `;
-      } else if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
-        // Qianwen：隐藏侧边栏
-        css += `
-          .layout-sider { display: none !important; width: 0 !important; }
-          .layout-content { width: 100% !important; max-width: 100% !important; }
-        `;
-      }
-      style.innerHTML = css;
-      if (document.head) document.head.appendChild(style);
-    }
-
     // 强力轮询去弹窗 (DeepSeek 特别顽固)
     if (host.includes('deepseek.com')) {
       setInterval(() => {
@@ -123,7 +159,10 @@
     } else if (host.includes('chatgpt.com')) {
       inputSelector = '#prompt-textarea';
       btnSelectors = ['button[data-testid="send-button"]'];
-    } else if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
+    } else if (host.includes('yuanbao.tencent.com')) {
+      inputSelector = 'textarea, div[role="textbox"][contenteditable="true"], div[data-slate-editor="true"][contenteditable="true"], div[contenteditable="true"]';
+      btnSelectors = ['button[aria-label*="发送"]', 'button[aria-label*="Send"]', 'button[type="submit"]', 'button[class*="send"]', 'div[role="button"][aria-label*="发送"]'];
+    } else if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com') || host.includes('yuanbao.tencent.com')) {
       inputSelector = '#chat-input, textarea, div[data-slate-editor="true"][contenteditable="true"]';
       btnSelectors = ['div[class*="operateBtn"]', 'button[aria-label*="发送"]', 'button[aria-label*="Send"]', 'button[class*="send"]', 'button[type="submit"]', 'div[class*="sendBtn"]'];
     } else if (host.includes('deepseek.com')) {
@@ -134,14 +173,24 @@
     } else if (host.includes('kimi.moonshot.cn') || host.includes('kimi.com')) {
       inputSelector = '.chat-input-editor[data-lexical-editor="true"][contenteditable="true"][role="textbox"], .chat-input-editor[data-lexical-editor="true"][contenteditable="true"], .editor[contenteditable="true"], .ProseMirror[contenteditable="true"], div[data-slate-editor="true"][contenteditable="true"], div[role="textbox"][contenteditable="true"], div[contenteditable="true"].editor';
       btnSelectors = ['button[class*="sendButton"]', 'button[class*="send-button"]', 'button[aria-label*="发送"]', 'button[aria-label*="Send"]', 'button[type="submit"]'];
+    } else if (host.includes('grok.com')) {
+      inputSelector = 'textarea[placeholder*="Ask"], textarea[aria-label*="Ask"], textarea, div[contenteditable="true"]';
+      btnSelectors = ['button[aria-label*="Grok"]', 'button[aria-label*="Send"]', 'button[aria-label*="Search"]', 'button[class*="send"]', 'svg[class*="send"]'];
     }
 
     // 寻找输入框
     let inputEl = null;
     const selectors = inputSelector.split(',').map(s => s.trim());
     for (const selector of selectors) {
-      inputEl = document.querySelector(selector);
-      if (inputEl) break;
+      const els = Array.from(document.querySelectorAll(selector));
+      const visibleEls = els.filter(el => {
+        const style = window.getComputedStyle(el);
+        return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetWidth > 0;
+      });
+      if (visibleEls.length > 0) {
+        inputEl = visibleEls[visibleEls.length - 1]; // pick the last visible one (usually the chat input at the bottom)
+        break;
+      }
     }
     if (inputEl) {
       // 激活输入框
@@ -183,6 +232,9 @@
           if (host.includes('kimi.moonshot.cn') || host.includes('kimi.com')) {
             inputEl.focus();
             
+            // Kimi 可能会有残留文本，我们尝试全选再替换
+            try { document.execCommand('selectAll', false, null); } catch(e) {}
+            
             // 竞品逻辑：完全依赖于 execCommand("insertText")
             // 绝大部分现代富文本编辑器（包括 ProseMirror）都会拦截这个命令并正确处理
             let inserted = false;
@@ -223,7 +275,7 @@
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
         
         // 对于通义千问的特殊处理：模拟真实的输入过程
-        if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
+        if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com') || host.includes('yuanbao.tencent.com')) {
           // 千问的输入逻辑极度依赖内部的 Slate.js，最稳妥的办法是聚焦后，通过原生剪贴板事件，不使用 execCommand 也不改 textContent
           if (inputEl.isContentEditable) {
             inputEl.focus();
@@ -334,7 +386,7 @@
         }
 
         // 千问的发送策略
-        if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
+        if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com') || host.includes('yuanbao.tencent.com')) {
           // 增加更长延迟，确保剪贴板粘贴的文本已经彻底被千问的 React 状态接管
           setTimeout(() => {
             // 参考竞品：千问的发送按钮通常可以通过 aria-label 等找到
@@ -342,10 +394,13 @@
                                document.querySelector('button[aria-label*="发送"]') || 
                                document.querySelector('button[aria-label*="Send"]') ||
                                document.querySelector('button[class*="send"]') ||
+                               document.querySelector('div[class*="send-btn"]') ||
+                               document.querySelector('div[class*="send_btn"]') ||
+                               document.querySelector('div[class*="chat-input-send"]') ||
                                document.querySelector('button[type="submit"]');
                                
-            if (qianwenBtn && !qianwenBtn.disabled) {
-              // 对于千问，只需要简单的 click() 或标准的 MouseEvent，不需要两者都来
+            if (qianwenBtn && (!qianwenBtn.disabled || qianwenBtn.getAttribute('aria-disabled') === 'false')) {
+              // 对于千问和元宝，简单的 click() 或标准的 MouseEvent
               try { 
                 qianwenBtn.click(); 
               } catch(e) {
@@ -354,8 +409,10 @@
                 qianwenBtn.dispatchEvent(new MouseEvent('click', { view: window, bubbles: true, cancelable: true }));
               }
             } else {
-               // 兜底回车
-              inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }));
+               // 兜底回车，触发全套键盘事件
+              inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+              inputEl.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+              inputEl.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
             }
             markDone();
           }, 500); // 增加延迟到 500ms
@@ -534,6 +591,18 @@
     }
   }
 
+  ensureHostLayoutStyle();
+  applyQianwenFallbackLayout();
+  
+  // 使用 MutationObserver 实时监控 DOM 变化，强制应用 Qianwen 的后备布局
+  const host = window.location.hostname;
+  if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
+    const observer = new MutationObserver(() => {
+      applyQianwenFallbackLayout();
+    });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+  }
+
   // 轮询查找 DOM 元素，因为 SPA 渲染有延迟
   const intervalId = setInterval(() => {
     if (hasInjected) {
@@ -572,7 +641,7 @@
       selectors.push('[class*="assistant"]', '[class*="markdown"]');
     } else if (host.includes('kimi.moonshot.cn')) {
       selectors.push('[data-role="assistant"]', '[class*="assistant"]', '[class*="markdown"]');
-    } else if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
+    } else if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com') || host.includes('yuanbao.tencent.com')) {
       selectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]');
     } else {
       selectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]', 'article', 'main');
@@ -606,6 +675,41 @@
         window.location.hash = `q=${encodeURIComponent(newQuery)}`;
         hasInjected = false; // 重置标志，允许重新注入发送
         injectQuery();
+      }
+    } else if (event.data && event.data.type === 'AI_SEARCH_PRO_SCROLL_TO_TEXT') {
+      const textToFind = event.data.text;
+      if (!textToFind) return;
+      
+      // 简单的高亮与滚动实现
+      // 遍历所有可能的文本节点寻找匹配的文字
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+      let node;
+      let targetElement = null;
+      
+      while (node = walker.nextNode()) {
+        if (node.nodeValue.includes(textToFind) && node.parentElement) {
+          const style = window.getComputedStyle(node.parentElement);
+          if (style.display !== 'none' && style.visibility !== 'hidden') {
+            targetElement = node.parentElement;
+            break; // 找到第一个匹配的就停止
+          }
+        }
+      }
+      
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // 临时添加一个高亮动画效果
+        const originalBg = targetElement.style.backgroundColor;
+        const originalTransition = targetElement.style.transition;
+        targetElement.style.transition = 'background-color 0.3s ease';
+        targetElement.style.backgroundColor = 'rgba(255, 235, 59, 0.6)';
+        
+        setTimeout(() => {
+          targetElement.style.backgroundColor = originalBg;
+          setTimeout(() => {
+            targetElement.style.transition = originalTransition;
+          }, 300);
+        }, 2000);
       }
     } else if (event.data && event.data.type === 'AI_SEARCH_PRO_THEME_CHANGE') {
       // 接收到主题切换消息
