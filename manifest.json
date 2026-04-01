@@ -18,6 +18,7 @@
     "https://chat.deepseek.com/*", 
     "https://tongyi.aliyun.com/*", 
     "https://*.qianwen.com/*",
+    "https://yuanbao.tencent.com/*",
     "*://*.google.com/*",
     "*://*.claude.ai/*",
     "*://*.perplexity.ai/*",
@@ -25,8 +26,18 @@
     "*://grok.com/*",
     "*://*.chatglm.cn/*"
   ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
-    "default_title": "OmniAI Search"
+    "default_title": "OmniAI Search",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background/background.js"
@@ -57,6 +68,7 @@
         "https://chat.deepseek.com/*", 
         "https://tongyi.aliyun.com/*", 
         "https://*.qianwen.com/*",
+        "https://yuanbao.tencent.com/*",
         "*://*.google.com/*",
         "*://*.claude.ai/*",
         "*://*.perplexity.ai/*",
@@ -67,6 +79,19 @@
       "js": ["content/ai-inject.js"],
       "all_frames": true,
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/*.png",
+        "icons/*.png",
+        "icons/*.svg",
+        "compare/*.html",
+        "compare/*.css",
+        "compare/*.js"
+      ],
+      "matches": ["<all_urls>"]
     }
   ]
 }

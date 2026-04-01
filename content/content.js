@@ -158,7 +158,7 @@
       <div class="ai-sp-settings-panel" id="ai-sp-settings-panel" style="display: none;">
         <div class="ai-sp-settings-header">
           <button class="ai-sp-settings-back-btn" id="ai-sp-settings-back-btn" title="返回">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 10H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M9 4L3 10L9 16" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+            <img src="${chrome.runtime.getURL('icons/settings-back.svg')}" style="width:20px;height:20px;" />
           </button>
           <span>设置</span>
           <div style="flex: 1;"></div>
@@ -173,7 +173,7 @@
               return `
                 <div class="ai-sp-platform-item" data-id="${p.id}" draggable="true">
                   <div class="ai-sp-platform-drag-handle">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M3 10H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M3 15H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                    <img src="${chrome.runtime.getURL('icons/settings-sort-drag.svg')}" style="width:16px;height:16px;" />
                     <span class="ai-sp-tooltip">按住拖拽排序</span>
                   </div>
                   <div class="ai-sp-platform-info">
@@ -197,7 +197,7 @@
       <div class="ai-sp-header">
       <div class="ai-sp-header-left">
         <button id="ai-sp-drag-btn" class="ai-sp-drag-handle">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="pointer-events: none;"><rect x="4" y="4" width="2" height="2" fill="currentColor"/><rect x="4" y="9" width="2" height="2" fill="currentColor"/><rect x="4" y="14" width="2" height="2" fill="currentColor"/><rect x="9" y="4" width="2" height="2" fill="currentColor"/><rect x="9" y="9" width="2" height="2" fill="currentColor"/><rect x="9" y="14" width="2" height="2" fill="currentColor"/><rect x="14" y="4" width="2" height="2" fill="currentColor"/><rect x="14" y="9" width="2" height="2" fill="currentColor"/><rect x="14" y="14" width="2" height="2" fill="currentColor"/></svg>
+          <img src="${chrome.runtime.getURL('icons/drag.svg')}" style="width:20px;height:20px;pointer-events:none;" />
           <span class="ai-sp-tooltip">按住拖拽</span>
         </button>
         <img src="${chrome.runtime.getURL('icons/icon48.png')}" style="width: 18px; height: 18px; margin-right: 6px;">
@@ -205,28 +205,28 @@
       </div>
       <div class="ai-sp-header-controls">
         <button id="ai-sp-theme-btn">
-          <svg class="ai-sp-icon-sun" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: ${userConfig.theme === 'dark' ? 'block' : 'none'};"><circle cx="10" cy="10" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M10 2V4" stroke="currentColor" stroke-width="1.2"/><path d="M10 16V18" stroke="currentColor" stroke-width="1.2"/><path d="M15.6583 4.33961L14.2441 5.75383" stroke="currentColor" stroke-width="1.2"/><path d="M5.75879 14.2391L4.34458 15.6533" stroke="currentColor" stroke-width="1.2"/><path d="M18.005 9.995L16.005 9.995" stroke="currentColor" stroke-width="1.2"/><path d="M4.005 9.995L2.005 9.995" stroke="currentColor" stroke-width="1.2"/><path d="M15.6654 15.6533L14.2512 14.2391" stroke="currentColor" stroke-width="1.2"/><path d="M5.76587 5.75381L4.35166 4.3396" stroke="currentColor" stroke-width="1.2"/></svg>
-          <svg class="ai-sp-icon-moon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: ${userConfig.theme === 'dark' ? 'none' : 'block'};"><path d="M7.1377 3.61133L7.7259 3.72971C7.71064 3.50936 7.62767 3.28271 7.45202 3.14246C7.27637 3.00221 7.03707 2.97189 6.832 3.06391L7.1377 3.61133ZM16.8613 11.3877L17.4495 11.506C17.4939 11.2857 17.4113 11.059 17.2357 10.9188C17.0601 10.7786 16.8208 10.7483 16.6157 10.8403L16.8613 11.3877ZM7.1377 3.61133L6.54949 3.49295C6.45135 3.98057 6.4 4.48461 6.4 5H7H7.6C7.6 4.56449 7.64337 4.13976 7.7259 3.72971L7.1377 3.61133ZM7 5H6.4C6.4 9.19736 9.80264 12.6 14 12.6V12V11.4C10.4654 11.4 7.6 8.53462 7.6 5H7ZM14 12V12.6C15.107 12.6 16.1583 12.3607 17.1069 11.9351L16.8613 11.3877L16.6157 10.8403C15.8167 11.1987 14.9324 11.4 14 11.4V12ZM16.8613 11.3877L16.2731 11.2694C15.6844 14.196 13.0993 16.4 10 16.4V17V17.6C13.6823 17.6 16.7504 14.9817 17.4495 11.506L16.8613 11.3877ZM10 17V16.4C6.46538 16.4 3.6 13.5346 3.6 10H3H2.4C2.4 14.1974 5.80264 17.6 10 17.6V17ZM3 10H3.6C3.6 7.39896 5.15221 5.15989 7.38333 4.15874L7.1377 3.61133L6.89206 3.06391C4.24581 4.25133 2.4 6.90886 2.4 10H3Z" fill="currentColor"/></svg>
+          <img class="ai-sp-icon-sun" src="${chrome.runtime.getURL('icons/sun.svg')}" style="width:20px;height:20px;display:${userConfig.theme === 'dark' ? 'block' : 'none'};" />
+          <img class="ai-sp-icon-moon" src="${chrome.runtime.getURL('icons/moon.svg')}" style="width:20px;height:20px;display:${userConfig.theme === 'dark' ? 'none' : 'block'};" />
           <span class="ai-sp-tooltip">${userConfig.theme === 'dark' ? '切换浅色模式' : '切换深色模式'}</span>
         </button>
         <button id="ai-sp-split-mode-btn">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.00012" y="3.00003" width="13.9999" height="13.9999" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M10 3V17" stroke="currentColor" stroke-width="1.2"/></svg>
+          <img src="${chrome.runtime.getURL('icons/split.svg')}" style="width:20px;height:20px;" />
           <span class="ai-sp-tooltip">对话结果对比</span>
         </button>
         <button id="ai-sp-web-btn">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3.00003" width="13.9999" height="13.9999" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M3 7H17" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 5H8.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          <img src="${chrome.runtime.getURL('icons/web.svg')}" style="width:20px;height:20px;" />
           <span class="ai-sp-tooltip">网页打开</span>
         </button>
         <button id="ai-sp-toggle-mode-btn">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.00012" y="3.00003" width="13.9999" height="13.9999" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M13 3V17" stroke="currentColor" stroke-width="1.2"/></svg>
+          <img src="${chrome.runtime.getURL('icons/sidebar.svg')}" style="width:20px;height:20px;" />
           <span class="ai-sp-tooltip" id="ai-sp-toggle-mode-tooltip">侧边栏打开</span>
         </button>
         <button id="ai-sp-settings-btn">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 6.5H18" stroke="currentColor" stroke-width="1.2"/><path d="M2 6.5H5" stroke="currentColor" stroke-width="1.2"/><path d="M2 13.5H8" stroke="currentColor" stroke-width="1.2"/><path d="M15 13.5H18" stroke="currentColor" stroke-width="1.2"/><circle cx="7.5" cy="6.5" r="2.5" stroke="currentColor" stroke-width="1.2"/><circle cx="12.5" cy="13.5" r="2.5" stroke="currentColor" stroke-width="1.2"/></svg>
+          <img src="${chrome.runtime.getURL('icons/settings.svg')}" style="width:20px;height:20px;" />
           <span class="ai-sp-tooltip">设置</span>
         </button>
         <button id="ai-sp-close-btn">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.6569 4.34314L4.34315 15.6568" stroke="currentColor" stroke-width="1.2"/><path d="M15.6569 15.6569L4.34315 4.34315" stroke="currentColor" stroke-width="1.2"/></svg>
+          <img src="${chrome.runtime.getURL('icons/close.svg')}" style="width:20px;height:20px;" />
           <span class="ai-sp-tooltip">关闭</span>
         </button>
       </div>
@@ -234,7 +234,7 @@
 
       <div class="ai-sp-platforms-wrapper">
         <button class="ai-sp-platforms-scroll-btn is-disabled" id="ai-sp-scroll-left">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 4L6 10L12 16" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          <img src="${chrome.runtime.getURL('icons/platform-arrow-left.svg')}" style="width:16px;height:16px;" />
         </button>
         <div class="ai-sp-platforms">
           ${enabledPlatforms.map(key => {
@@ -247,10 +247,10 @@
           `}).join('')}
         </div>
         <button class="ai-sp-platforms-scroll-btn is-disabled" id="ai-sp-scroll-right">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 4L14 10L8 16" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          <img src="${chrome.runtime.getURL('icons/platform-arrow-right.svg')}" style="width:16px;height:16px;" />
         </button>
       </div>
-      <div class="ai-sp-iframe-content-area" style="position: relative; width: 100%; height: 100%; overflow: hidden;">
+      <div class="ai-sp-iframe-content-area" style="position: relative; width: 100%; min-height: 0;">
         ${enabledPlatforms.map(platformKey => {
           const isCurrent = platformKey === currentPlatform;
           return `
@@ -580,7 +580,7 @@
           const toggleBtn = document.getElementById('ai-sp-toggle-mode-btn');
           const toggleTooltip = document.getElementById('ai-sp-toggle-mode-tooltip');
           if(toggleBtn) {
-            toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.0001 16.9999H15C16.1046 16.9999 17 16.1045 17 14.9999V5.00003C17 3.89546 16.1046 3.00003 15 3.00003H5.00012C3.89555 3.00003 3.00012 3.89546 3.00012 5.00003V6.99999" stroke="currentColor" stroke-width="1.2"/><path d="M3 10C3 9.44772 3.44772 9 4 9H8C8.55228 9 9 9.44772 9 10V16C9 16.5523 8.55228 17 8 17H4C3.44772 17 3 16.5523 3 16V10Z" stroke="currentColor" stroke-width="1.2"/></svg><span class="ai-sp-tooltip">小窗打开</span>`;
+            toggleBtn.innerHTML = `<img src="${chrome.runtime.getURL('icons/floating.svg')}" style="width:20px;height:20px;" /><span class="ai-sp-tooltip">小窗打开</span>`;
           }
         } else {
           // 切换回小窗
@@ -593,7 +593,7 @@
           
           const toggleBtn = document.getElementById('ai-sp-toggle-mode-btn');
           if(toggleBtn) {
-            toggleBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.00012" y="3.00003" width="13.9999" height="13.9999" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M13 3V17" stroke="currentColor" stroke-width="1.2"/></svg><span class="ai-sp-tooltip" id="ai-sp-toggle-mode-tooltip">侧边栏打开</span>`;
+            toggleBtn.innerHTML = `<img src="${chrome.runtime.getURL('icons/sidebar.svg')}" style="width:20px;height:20px;" /><span class="ai-sp-tooltip" id="ai-sp-toggle-mode-tooltip">侧边栏打开</span>`;
           }
           
           updateFloatingWindowPosition();
@@ -633,7 +633,7 @@
         return `
           <div class="ai-sp-platform-item" data-id="${p.id}" draggable="true">
             <div class="ai-sp-platform-drag-handle">
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M3 10H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M3 15H17" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                  <img src="${chrome.runtime.getURL('icons/settings-sort-drag.svg')}" style="width:16px;height:16px;" />
                   <span class="ai-sp-tooltip">按住拖拽排序</span>
             </div>
             <div class="ai-sp-platform-info">
@@ -928,8 +928,8 @@
 
     function ensurePlatformBtnVisible(btn) {
       if (!platformsContainer || !btn) return;
-      const safeRight = 40;
-      const safeLeft = 40;
+      const safeRight = 64;
+      const safeLeft = 64;
       const containerRect = platformsContainer.getBoundingClientRect();
       const btnRect = btn.getBoundingClientRect();
       if (btnRect.right > containerRect.right - safeRight) {
@@ -962,7 +962,7 @@
     if (scrollLeftBtn) {
       scrollLeftBtn.addEventListener('click', () => {
         if (scrollLeftBtn.classList.contains('is-disabled')) return;
-        const step = Math.max(180, Math.floor(platformsContainer.clientWidth * 0.75));
+        const step = Math.max(220, Math.floor(platformsContainer.clientWidth * 0.95));
         platformsContainer.scrollBy({ left: -step, behavior: 'smooth' });
       });
     }
@@ -970,7 +970,7 @@
     if (scrollRightBtn) {
       scrollRightBtn.addEventListener('click', () => {
         if (scrollRightBtn.classList.contains('is-disabled')) return;
-        const step = Math.max(180, Math.floor(platformsContainer.clientWidth * 0.75));
+        const step = Math.max(220, Math.floor(platformsContainer.clientWidth * 0.95));
         platformsContainer.scrollBy({ left: step, behavior: 'smooth' });
       });
     }
@@ -987,7 +987,6 @@
           const targetPlatform = newBtn.dataset.platform;
           if (targetPlatform === currentPlatform) return;
 
-          // 更新按钮状态
           container.querySelectorAll('.ai-sp-platform-btn').forEach(b => b.classList.remove('active'));
           newBtn.classList.add('active');
 

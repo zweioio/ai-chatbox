@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OmniAI 对话结果对比</title>
+  <link rel="stylesheet" href="./compare.css" />
+</head>
+<body>
+  <div class="cmp-app">
+    <header class="cmp-header">
+      <div></div>
+      <div id="cmp-query-title" class="cmp-center-title"></div>
+      <div class="cmp-header-actions">
+        <span id="cmp-count" class="cmp-count">0/4</span>
+        <select id="cmp-platform-select" class="cmp-select"></select>
+        <button id="cmp-add-btn" class="cmp-btn">添加AI窗口</button>
+      </div>
+    </header>
+
+    <div id="cmp-body" class="cmp-body">
+      <main id="cmp-grid" class="cmp-grid"></main>
+      <aside id="cmp-panel" class="cmp-side">
+        <div class="cmp-side-head">
+          <div class="cmp-side-title">差异高亮</div>
+          <button id="cmp-refresh-btn" class="cmp-btn cmp-refresh">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10C16 13.3137 13.3137 16 10 16C6.68629 16 4 13.3137 4 10C4 8.13538 4.85115 6.46954 6.18519 5.36958" stroke="currentColor" stroke-width="1.3"/><path d="M7 4H4V7" stroke="currentColor" stroke-width="1.3"/></svg>
+            <span>刷新高亮</span>
+          </button>
+          <button id="cmp-panel-toggle" class="cmp-toggle">▸</button>
+        </div>
+        <div id="cmp-panel-body" class="cmp-panel-body">
+          <div class="cmp-legend">
+            <span class="cmp-tag cmp-tag-match">一致</span>
+            <span class="cmp-tag cmp-tag-diff">差异</span>
+            <span class="cmp-tag cmp-tag-miss">缺失</span>
+          </div>
+          <div id="cmp-keywords" class="cmp-keywords"></div>
+          <div id="cmp-diff-list" class="cmp-diff-list"></div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="cmp-footer">
+      <div class="cmp-input-wrap">
+        <textarea id="cmp-global-input" class="cmp-input" placeholder="输入内容后，发送到全部对比窗口"></textarea>
+        <button id="cmp-send-btn" class="cmp-send-btn" disabled>发送</button>
+      </div>
+    </footer>
+    <div id="cmp-toast" class="cmp-toast" style="display:none;"></div>
+  </div>
+  <script src="./compare.js"></script>
+</body>
+</html>

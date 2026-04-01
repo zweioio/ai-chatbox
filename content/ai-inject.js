@@ -548,6 +548,54 @@
     hasInjected = false;
     injectQuery();
   });
+
+  function normalizeSummaryText(text) {
+    return (text || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function isVisibleElement(el) {
+    if (!el) return false;
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  function extractSummaryText() {
+    const host = window.location.hostname;
+    const selectors = [];
+    if (host.includes('chatgpt.com')) {
+      selectors.push('[data-message-author-role="assistant"]', 'main [class*="prose"]');
+    } else if (host.includes('deepseek.com')) {
+      selectors.push('[class*="assistant"]', '[class*="markdown"]');
+    } else if (host.includes('kimi.moonshot.cn')) {
+      selectors.push('[data-role="assistant"]', '[class*="assistant"]', '[class*="markdown"]');
+    } else if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
+      selectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]');
+    } else {
+      selectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]', 'article', 'main');
+    }
+
+    let parts = [];
+    selectors.forEach(sel => {
+      try {
+        document.querySelectorAll(sel).forEach(el => {
+          if (!isVisibleElement(el)) return;
+          const t = normalizeSummaryText(el.innerText || '');
+          if (t.length >= 20) parts.push(t);
+        });
+      } catch (e) {}
+    });
+
+    if (!parts.length) {
+      const bodyText = normalizeSummaryText(document.body ? document.body.innerText : '');
+      return bodyText.slice(0, 2200);
+    }
+
+    return normalizeSummaryText(parts.slice(-8).join('\n')).slice(0, 2200);
+  }
   
   // 监听来自父窗口（小窗外壳）的新词消息，用于在当前对话中继续回答
   window.addEventListener('message', (event) => {
@@ -588,6 +636,15 @@
         const style = document.getElementById('ai-sp-dark-mode-fallback');
         if (style) style.remove();
       }
+    } else if (event.data && event.data.type === 'AI_SEARCH_PRO_REQUEST_SUMMARY') {
+      const requestId = event.data.requestId || '';
+      const summary = extractSummaryText();
+      window.parent.postMessage({
+        type: 'AI_SEARCH_PRO_SUMMARY',
+        requestId,
+        summary,
+        url: window.location.href
+      }, '*');
     }
   });
 
