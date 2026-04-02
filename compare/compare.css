@@ -363,6 +363,16 @@ html, body {
   border-radius: 999px;
 }
 
+.cmp-tag-filter {
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.cmp-tag-filter.is-active {
+  box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.12), 0 0 0 2px rgba(79, 70, 229, 0.12);
+  transform: translateY(-1px);
+}
+
 .cmp-tag-match { background: var(--cmp-match-bg); color: var(--cmp-match-text); }
 .cmp-tag-diff { background: var(--cmp-diff-bg); color: var(--cmp-diff-text); }
 .cmp-tag-miss { background: var(--cmp-miss-bg); color: var(--cmp-miss-text); }
@@ -372,6 +382,55 @@ html, body {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  overflow: hidden;
+}
+
+.cmp-keywords.is-truncated {
+  max-height: 56px;
+}
+
+.cmp-keywords-section {
+  margin-top: 8px;
+  border: 1px solid var(--cmp-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 10px;
+}
+
+.cmp-keywords-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cmp-keywords-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cmp-keywords-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cmp-sub);
+}
+
+.cmp-keywords-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  color: #4f46e5;
+  cursor: pointer;
+}
+
+.cmp-keywords-section.is-collapsed .cmp-keywords {
+  display: none;
+}
+
+.cmp-keywords-section.is-empty {
+  display: none;
 }
 
 .cmp-keyword {
@@ -380,6 +439,14 @@ html, body {
   background: #eef2ff;
   color: #3730a3;
   font-size: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.cmp-keyword.is-active {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4338ca;
 }
 
 .cmp-diff-list {
@@ -399,9 +466,40 @@ html, body {
   background: #fff;
 }
 
+.cmp-diff-item.is-collapsed .cmp-diff-badges,
+.cmp-diff-item.is-collapsed .cmp-diff-text {
+  display: none;
+}
+
 .cmp-diff-head {
   font-size: 12px;
   color: var(--cmp-sub);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cmp-diff-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.cmp-diff-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  color: #4f46e5;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cmp-mark-focus {
+  background: rgba(79, 70, 229, 0.18);
+  color: #312e81;
+  border-radius: 4px;
+  padding: 0 2px;
 }
 
 .cmp-diff-badges {

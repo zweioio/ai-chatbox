@@ -6,7 +6,7 @@
     qianwen: { name: '千问', url: 'https://www.qianwen.com/', icon: `<img src="${chrome.runtime.getURL('assets/qianwen.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/qianwen.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     yuanbao: { name: '元宝', url: 'https://yuanbao.tencent.com/chat/naQivTmsDa', icon: `<img src="${chrome.runtime.getURL('assets/yuanbao.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/yuanbao.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
-    kimi: { name: 'Kimi', url: 'https://kimi.moonshot.cn/', icon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    kimi: { name: 'Kimi', url: 'https://www.kimi.com/', icon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     chatglm: { name: '智谱清言', url: 'https://chatglm.cn/main/alltoolsdetail?lang=zh', icon: `<img src="${chrome.runtime.getURL('assets/chatglm.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/chatglm.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: `<img src="${chrome.runtime.getURL('assets/chatgpt.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/chatgpt.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     gemini: { name: 'Gemini', url: 'https://gemini.google.com/', icon: `<img src="${chrome.runtime.getURL('assets/gemini.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/gemini.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
@@ -108,6 +108,25 @@
     return '';
   }
 
+  function shouldUseHashBootstrap(platformKey) {
+    return platformKey !== 'kimi';
+  }
+
+  function buildPlatformUrl(platformKey, text) {
+    const base = AI_PLATFORMS[platformKey].url;
+    const queryText = (text || '').trim();
+    if (!queryText || !shouldUseHashBootstrap(platformKey)) return base;
+    return `${base}#q=${encodeURIComponent(queryText)}`;
+  }
+
+  function sendQueryToIframe(iframe, text) {
+    const queryText = (text || '').trim();
+    if (!iframe || !iframe.contentWindow || !queryText) return;
+    try {
+      iframe.contentWindow.postMessage({ type: 'AI_SEARCH_PRO_NEW_QUERY', query: queryText }, '*');
+    } catch (e) {}
+  }
+
   // 提取创建 UI 的核心逻辑，允许在配置加载前先渲染默认外壳
   function renderInitialUI() {
     if (document.getElementById('ai-sp-container')) return;
@@ -147,7 +166,7 @@
     // 立即加载所有已启用的平台，实现统一并发发送
     enabledPlatforms.forEach(platformKey => {
       loadedPlatforms[platformKey] = true;
-      platformUrls[platformKey] = `${AI_PLATFORMS[platformKey].url}#q=${encodeURIComponent(query)}`;
+      platformUrls[platformKey] = buildPlatformUrl(platformKey, query);
     });
 
     container.innerHTML = `
@@ -297,6 +316,12 @@
           if (iframe.src && iframe.src !== 'about:blank') {
             if (loading) loading.style.display = 'none';
             iframe.style.opacity = '1';
+            if (!shouldUseHashBootstrap(platformKey)) {
+              const currentQuery = getSearchQuery();
+              if (currentQuery) {
+                setTimeout(() => sendQueryToIframe(iframe, currentQuery), 180);
+              }
+            }
           }
         });
       }
@@ -838,6 +863,12 @@
                 if (newIframe.src && newIframe.src !== 'about:blank') {
                   if (newLoading) newLoading.style.display = 'none';
                   newIframe.style.opacity = '1';
+                  if (!shouldUseHashBootstrap(platformKey)) {
+                    const currentQuery = getSearchQuery();
+                    if (currentQuery) {
+                      setTimeout(() => sendQueryToIframe(newIframe, currentQuery), 180);
+                    }
+                  }
                 }
               });
             }
@@ -858,7 +889,7 @@
                 const targetIframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
                 const targetLoading = document.getElementById(`ai-sp-loading-${platformKey}`);
                 if (targetIframe) {
-                  platformUrls[platformKey] = `${AI_PLATFORMS[platformKey].url}#q=${encodeURIComponent(currentQuery)}`;
+                  platformUrls[platformKey] = buildPlatformUrl(platformKey, currentQuery);
                   targetIframe.style.opacity = '0';
                   if (targetLoading) targetLoading.style.display = 'flex';
                   targetIframe.src = platformUrls[platformKey];
@@ -997,7 +1028,7 @@
           if (!loadedPlatforms[targetPlatform] && newIframe) {
             const currentQuery = getSearchQuery();
             if (currentQuery) {
-              platformUrls[targetPlatform] = `${AI_PLATFORMS[targetPlatform].url}#q=${encodeURIComponent(currentQuery)}`;
+              platformUrls[targetPlatform] = buildPlatformUrl(targetPlatform, currentQuery);
               newIframe.style.opacity = '0';
               if (newLoading) newLoading.style.display = 'flex';
               newIframe.src = platformUrls[targetPlatform];
@@ -1019,7 +1050,7 @@
                const secondaryLoading = document.getElementById(`ai-sp-loading-${splitSecondaryPlatform}`);
                const currentQuery = getSearchQuery();
                if (currentQuery && secondaryIframe) {
-                 platformUrls[splitSecondaryPlatform] = `${AI_PLATFORMS[splitSecondaryPlatform].url}#q=${encodeURIComponent(currentQuery)}`;
+                 platformUrls[splitSecondaryPlatform] = buildPlatformUrl(splitSecondaryPlatform, currentQuery);
                  secondaryIframe.style.opacity = '0';
                  if (secondaryLoading) secondaryLoading.style.display = 'flex';
                  secondaryIframe.src = platformUrls[splitSecondaryPlatform];

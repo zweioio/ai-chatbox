@@ -47,11 +47,20 @@
         </div>
         <div id="cmp-panel-body" class="cmp-panel-body">
           <div class="cmp-legend">
-            <span class="cmp-tag cmp-tag-match">一致</span>
-            <span class="cmp-tag cmp-tag-diff">差异</span>
-            <span class="cmp-tag cmp-tag-miss">缺失</span>
+            <button type="button" class="cmp-tag cmp-tag-filter cmp-tag-match" data-filter="match">一致</button>
+            <button type="button" class="cmp-tag cmp-tag-filter cmp-tag-diff" data-filter="diff">差异</button>
+            <button type="button" class="cmp-tag cmp-tag-filter cmp-tag-miss" data-filter="miss">缺失</button>
           </div>
-          <div id="cmp-keywords" class="cmp-keywords"></div>
+          <div id="cmp-keywords-section" class="cmp-keywords-section">
+            <div class="cmp-keywords-head">
+              <span class="cmp-keywords-title">差异标签</span>
+              <div class="cmp-keywords-actions">
+                <button id="cmp-keywords-more" type="button" class="cmp-keywords-toggle" style="display:none;">展开更多</button>
+                <button id="cmp-keywords-toggle" type="button" class="cmp-keywords-toggle">折叠</button>
+              </div>
+            </div>
+            <div id="cmp-keywords" class="cmp-keywords"></div>
+          </div>
           <div id="cmp-diff-list" class="cmp-diff-list"></div>
         </div>
       </aside>

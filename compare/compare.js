@@ -4,7 +4,7 @@
     qianwen: { name: "千问", url: "https://www.qianwen.com/" },
     deepseek: { name: "DeepSeek", url: "https://chat.deepseek.com/" },
     yuanbao: { name: "元宝", url: "https://yuanbao.tencent.com/chat/naQivTmsDa" },
-    kimi: { name: "Kimi", url: "https://kimi.moonshot.cn/" },
+    kimi: { name: "Kimi", url: "https://www.kimi.com/" },
     chatglm: { name: "智谱清言", url: "https://chatglm.cn/main/alltoolsdetail?lang=zh" },
     chatgpt: { name: "ChatGPT", url: "https://chatgpt.com/" },
     gemini: { name: "Gemini", url: "https://gemini.google.com/" },
@@ -60,7 +60,11 @@
   const toastEl = document.getElementById("cmp-toast");
   const grid = document.getElementById("cmp-grid");
   const bodyEl = document.getElementById("cmp-body");
+  const legendFilterEls = Array.from(document.querySelectorAll(".cmp-tag-filter"));
   const keywordsEl = document.getElementById("cmp-keywords");
+  const keywordsSectionEl = document.getElementById("cmp-keywords-section");
+  const keywordsMoreEl = document.getElementById("cmp-keywords-more");
+  const keywordsToggleEl = document.getElementById("cmp-keywords-toggle");
   const diffListEl = document.getElementById("cmp-diff-list");
   const diffOnlyToggleEl = document.getElementById("cmp-diff-only-toggle");
   const minPanes = 2;
@@ -68,6 +72,15 @@
   const paneSummaries = new Map();
   const paneStates = new Map();
   const summaryRequests = new Map();
+  const EXT_ORIGIN = location.origin;
+  const EMBEDDED_SEND_EVENT = "AI_SP_EMBEDDED_SEND";
+  const EMBEDDED_SEND_DONE_EVENT = "AI_SP_EMBEDDED_SEND_DONE";
+  const pendingSends = new Map();
+  const collapsedDiffCards = new Map();
+  let keywordsCollapsed = false;
+  let keywordsExpanded = false;
+  let activeKeyword = "";
+  let activeDiffFilter = "";
   let draggingPaneId = "";
   let paneOrderSeed = 1;
   const ENABLE_DRAG_REORDER = true;
@@ -90,6 +103,7 @@
   function buildIframeUrl(platformKey) {
     if (initialUrls[platformKey]) return initialUrls[platformKey];
     const base = AI_PLATFORMS[platformKey].url;
+    if (platformKey === "kimi") return base;
     if (!query) return base;
     return `${base}#q=${encodeURIComponent(query)}`;
   }
@@ -102,6 +116,20 @@
 
   function makeRequestId() {
     return `r_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function applyKeywordsCollapsedState() {
+    if (!keywordsSectionEl || !keywordsToggleEl) return;
+    keywordsSectionEl.classList.toggle("is-collapsed", keywordsCollapsed);
+    keywordsToggleEl.textContent = keywordsCollapsed ? "展开" : "折叠";
+  }
+
+  function applyKeywordsExpandedState() {
+    if (!keywordsEl || !keywordsMoreEl) return;
+    const shouldTruncate = keywordsEl.dataset.overflow === "true" && !keywordsCollapsed;
+    keywordsEl.classList.toggle("is-truncated", shouldTruncate && !keywordsExpanded);
+    keywordsMoreEl.style.display = shouldTruncate ? "inline-block" : "none";
+    keywordsMoreEl.textContent = keywordsExpanded ? "收起" : "展开更多";
   }
 
   function normalizeText(text) {
@@ -364,33 +392,57 @@
   }
 
   function handleDiffToggle() {
-    if (!diffOnlyToggleEl) return;
-    const isDiffOnly = diffOnlyToggleEl.checked;
+    const isDiffOnly = !!diffOnlyToggleEl?.checked;
     const items = diffListEl.querySelectorAll(".cmp-diff-item");
     items.forEach(item => {
       const matchCountBadge = item.querySelector(".cmp-badge.match");
       const matchCount = matchCountBadge ? parseInt(matchCountBadge.textContent.replace(/[^0-9]/g, ''), 10) : 0;
       const diffCountBadge = item.querySelector(".cmp-badge.diff");
       const diffCount = diffCountBadge ? parseInt(diffCountBadge.textContent.replace(/[^0-9]/g, ''), 10) : 0;
-      
-      if (isDiffOnly) {
-        if (diffCount === 0 && matchCount > 0) {
-          item.style.display = "none";
-        } else {
-          item.style.display = "flex";
-          // We can also hide matching sentences inside the text, but for now we'll just hide entirely identical panels or show them
-          const marks = item.querySelectorAll(".cmp-diff-text span:not(.cmp-mark)");
-          // The current implementation uses span.cmp-mark for matches or differences?
-          // Actually, cmp-mark is used for matches in sentences, and diff words. Let's keep it simple: just hide identical blocks.
-        }
-      } else {
-        item.style.display = "flex";
-      }
+      const missCountBadge = item.querySelector(".cmp-badge.miss");
+      const missCount = missCountBadge ? parseInt(missCountBadge.textContent.replace(/[^0-9]/g, ''), 10) : 0;
+      const keywordHit = !activeKeyword || (item.dataset.keywords || "").split("|").includes(activeKeyword);
+      const diffVisible = !(isDiffOnly && diffCount === 0 && matchCount > 0);
+      const typeVisible =
+        !activeDiffFilter ||
+        (activeDiffFilter === "match" && matchCount > 0) ||
+        (activeDiffFilter === "diff" && diffCount > 0) ||
+        (activeDiffFilter === "miss" && missCount > 0);
+      item.style.display = keywordHit && diffVisible && typeVisible ? "flex" : "none";
     });
   }
 
   if (diffOnlyToggleEl) {
     diffOnlyToggleEl.addEventListener("change", handleDiffToggle);
+  }
+
+  if (keywordsToggleEl) {
+    keywordsToggleEl.addEventListener("click", () => {
+      keywordsCollapsed = !keywordsCollapsed;
+      applyKeywordsCollapsedState();
+      if (keywordsCollapsed) {
+        keywordsExpanded = false;
+      }
+      applyKeywordsExpandedState();
+    });
+  }
+
+  if (keywordsMoreEl) {
+    keywordsMoreEl.addEventListener("click", () => {
+      keywordsExpanded = !keywordsExpanded;
+      applyKeywordsExpandedState();
+    });
+  }
+
+  if (legendFilterEls.length) {
+    legendFilterEls.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const filter = btn.dataset.filter || "";
+        activeDiffFilter = activeDiffFilter === filter ? "" : filter;
+        legendFilterEls.forEach(el => el.classList.toggle("is-active", el.dataset.filter === activeDiffFilter));
+        handleDiffToggle();
+      });
+    });
   }
 
   function renderDiffHighlights() {
@@ -415,22 +467,47 @@
       keywordPool.push(...Array.from(new Set(d.tokens)).filter(t => tokenFreq.get(t) === 1).slice(0, 6));
     });
 
+    const keywords = Array.from(new Set(keywordPool)).slice(0, 30);
+    if (activeKeyword && !keywords.includes(activeKeyword)) {
+      activeKeyword = "";
+    }
     keywordsEl.innerHTML = "";
-    Array.from(new Set(keywordPool)).slice(0, 30).forEach(word => {
+    keywords.forEach(word => {
       const item = document.createElement("span");
       item.className = "cmp-keyword";
+      if (word === activeKeyword) item.classList.add("is-active");
       item.textContent = word;
+      item.addEventListener("click", () => {
+        activeKeyword = activeKeyword === word ? "" : word;
+        renderDiffHighlights();
+      });
       keywordsEl.appendChild(item);
+    });
+    if (keywordsSectionEl) {
+      keywordsSectionEl.classList.toggle("is-empty", keywords.length === 0);
+      if (keywords.length && keywords.length <= 8) {
+        keywordsCollapsed = false;
+      }
+    }
+    applyKeywordsCollapsedState();
+    requestAnimationFrame(() => {
+      if (!keywordsEl) return;
+      const overflow = keywordsEl.scrollHeight > 64;
+      keywordsEl.dataset.overflow = overflow ? "true" : "false";
+      if (!overflow) {
+        keywordsExpanded = false;
+      }
+      applyKeywordsExpandedState();
     });
 
     const baseline = data[0];
     const baselineSentences = baseline ? baseline.sentences.slice(0, 10) : [];
+    const cards = [];
     diffListEl.innerHTML = "";
     data.forEach((d, idx) => {
-      const card = document.createElement("div");
-      card.className = "cmp-diff-item";
       const title = AI_PLATFORMS[d.platform] ? AI_PLATFORMS[d.platform].name : d.platform;
       const uniq = Array.from(new Set(d.tokens)).filter(t => tokenFreq.get(t) === 1).slice(0, 5);
+      const allTokens = Array.from(new Set(d.tokens));
       let matchCount = 0;
       let diffCount = 0;
       let missCount = 0;
@@ -462,41 +539,84 @@
           }
         });
       }
-    let snippetHtml = lines.length ? lines.slice(0, 5).join(" ") : "尚未抓取到摘要文本，可点击刷新高亮重试。";
-    uniq.forEach(word => {
-      const re = new RegExp(escapeRegExp(word), "ig");
-      snippetHtml = snippetHtml.replace(re, (m) => `<span class="cmp-mark-diff" style="background: rgba(255, 99, 132, 0.2); padding: 0 2px; border-radius: 2px;">${m}</span>`);
-    });
-    const uniqText = uniq.length ? `差异词：${uniq.join("、")}` : "差异词：暂无";
-    card.innerHTML = `
-      <div class="cmp-diff-head">${title} · ${uniqText}</div>
-      <div class="cmp-diff-badges">
-        <span class="cmp-badge match">一致 ${matchCount}</span>
-        <span class="cmp-badge diff">差异 ${diffCount}</span>
-        <span class="cmp-badge miss">缺失 ${missCount}</span>
-      </div>
-      <div class="cmp-diff-text">${snippetHtml}</div>
-    `;
-    
-    const markNodes = card.querySelectorAll('.cmp-mark, .cmp-mark-diff');
-    markNodes.forEach(mark => {
-      mark.style.cursor = 'pointer';
-      mark.title = '点击跳转到对应内容';
-      mark.addEventListener('click', () => {
-        const textToFind = mark.textContent;
-        const targetPane = document.querySelector(`.cmp-pane[data-pane-id="${d.paneId}"]`);
-        if (targetPane) {
-          const iframe = targetPane.querySelector('iframe');
-          if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'AI_SEARCH_PRO_SCROLL_TO_TEXT', text: textToFind }, '*');
-            showToast(`正在跳转到 ${title} 的对应内容...`);
-          }
-        }
+      let snippetHtml = lines.length ? lines.slice(0, 5).join(" ") : "尚未抓取到摘要文本，可点击刷新高亮重试。";
+      uniq.forEach(word => {
+        const re = new RegExp(escapeRegExp(word), "ig");
+        snippetHtml = snippetHtml.replace(re, (m) => `<span class="cmp-mark-diff" style="background: rgba(255, 99, 132, 0.2); padding: 0 2px; border-radius: 2px;">${m}</span>`);
+      });
+      if (activeKeyword) {
+        const focusRe = new RegExp(escapeRegExp(activeKeyword), "ig");
+        snippetHtml = snippetHtml.replace(focusRe, (m) => `<span class="cmp-mark-focus">${m}</span>`);
+      }
+      const uniqText = uniq.length ? `差异词：${uniq.join("、")}` : "差异词：暂无";
+      const score = diffCount * 2 + missCount + (activeKeyword && allTokens.includes(activeKeyword) ? 3 : 0);
+      cards.push({
+        paneId: d.paneId,
+        title,
+        uniqText,
+        matchCount,
+        diffCount,
+        missCount,
+        snippetHtml,
+        allTokens,
+        score,
+        isBaseline: idx === 0
       });
     });
 
-    diffListEl.appendChild(card);
-  });
+    const sortedCards = [
+      ...cards.filter(card => card.isBaseline),
+      ...cards.filter(card => !card.isBaseline).sort((a, b) => b.score - a.score || b.diffCount - a.diffCount || b.missCount - a.missCount)
+    ];
+
+    sortedCards.forEach(cardData => {
+      const card = document.createElement("div");
+      card.className = "cmp-diff-item";
+      card.dataset.keywords = cardData.allTokens.join("|");
+      card.innerHTML = `
+      <div class="cmp-diff-head">
+        <span class="cmp-diff-title">${cardData.title} · ${cardData.uniqText}</span>
+        <button type="button" class="cmp-diff-toggle">折叠</button>
+      </div>
+      <div class="cmp-diff-badges">
+        <span class="cmp-badge match">一致 ${cardData.matchCount}</span>
+        <span class="cmp-badge diff">差异 ${cardData.diffCount}</span>
+        <span class="cmp-badge miss">缺失 ${cardData.missCount}</span>
+      </div>
+      <div class="cmp-diff-text">${cardData.snippetHtml}</div>
+    `;
+
+      const markNodes = card.querySelectorAll('.cmp-mark, .cmp-mark-diff, .cmp-mark-focus');
+      markNodes.forEach(mark => {
+        mark.style.cursor = 'pointer';
+        mark.title = '点击跳转到对应内容';
+        mark.addEventListener('click', () => {
+          const textToFind = mark.textContent;
+          const targetPane = document.querySelector(`.cmp-pane[data-pane-id="${cardData.paneId}"]`);
+          if (targetPane) {
+            const iframe = targetPane.querySelector('iframe');
+            if (iframe && iframe.contentWindow) {
+              iframe.contentWindow.postMessage({ type: 'AI_SEARCH_PRO_SCROLL_TO_TEXT', text: textToFind }, '*');
+              showToast(`正在跳转到 ${cardData.title} 的对应内容...`);
+            }
+          }
+        });
+      });
+
+      const cardToggle = card.querySelector(".cmp-diff-toggle");
+      if (cardToggle) {
+        const collapsed = collapsedDiffCards.get(cardData.paneId) === true;
+        card.classList.toggle("is-collapsed", collapsed);
+        cardToggle.textContent = collapsed ? "展开" : "折叠";
+        cardToggle.addEventListener("click", () => {
+          const collapsed = card.classList.toggle("is-collapsed");
+          collapsedDiffCards.set(cardData.paneId, collapsed);
+          cardToggle.textContent = collapsed ? "展开" : "折叠";
+        });
+      }
+
+      diffListEl.appendChild(card);
+    });
   
   handleDiffToggle(); // re-apply filter
 }
@@ -517,22 +637,48 @@
     if (!q) return;
     query = q;
     if (queryTitleEl) queryTitleEl.textContent = q;
+    const requestId = makeRequestId();
+    const expected = new Set();
+    const failedPaneIds = new Set();
     const bridge = FEATURE_SWITCH.v2 ? getBridgeContext() : "";
     getPaneNodes().forEach(pane => {
       const iframe = pane.querySelector(".cmp-iframe");
       if (!iframe || !iframe.contentWindow) return;
+      expected.add(iframe.contentWindow);
       const state = paneStates.get(pane.dataset.paneId) || {};
       let sendText = q;
       if (FEATURE_SWITCH.v2 && state.status === "fallback" && bridge) {
         sendText = `参考上下文继续：${bridge}\n\n用户问题：${q}`;
       }
       try {
-        iframe.contentWindow.postMessage({ type: "AI_SEARCH_PRO_NEW_QUERY", query: sendText }, "*");
+        iframe.contentWindow.postMessage({ type: EMBEDDED_SEND_EVENT, text: sendText, submit: true, requestId, paneId: pane.dataset.paneId }, "*");
       } catch (e) {}
     });
-    showToast("已同步发送到全部窗口");
-    setTimeout(() => scheduleAllSummaryExtraction(), 1200);
-    setTimeout(() => scheduleAllSummaryExtraction(), 2600);
+    const done = new Set();
+    const timer = setTimeout(() => {
+      const pending = pendingSends.get(requestId);
+      if (!pending) return;
+      pendingSends.delete(requestId);
+      if (pending.failedPaneIds.size) {
+        const names = Array.from(pending.failedPaneIds)
+          .map(paneId => {
+            const pane = document.querySelector(`.cmp-pane[data-pane-id="${paneId}"]`);
+            if (!pane) return "未知";
+            const sel = pane.querySelector(".cmp-pane-select");
+            const key = sel ? sel.value : "";
+            return (AI_PLATFORMS[key] && AI_PLATFORMS[key].name) ? AI_PLATFORMS[key].name : "未知";
+          })
+          .filter(Boolean)
+          .join("、");
+        showToast(`成功 ${pending.done.size}/${pending.expected.size}，失败：${names}`);
+      } else {
+        showToast(`已发送 ${pending.done.size}/${pending.expected.size} 个窗口`);
+      }
+      setTimeout(() => scheduleAllSummaryExtraction(), 1200);
+      setTimeout(() => scheduleAllSummaryExtraction(), 2600);
+    }, 4500);
+    pendingSends.set(requestId, { expected, done, failedPaneIds, timer });
+    showToast("正在同步发送...");
   }
 
   function createPane(platformKey) {
@@ -545,6 +691,7 @@
     const pane = document.createElement("section");
     pane.className = "cmp-pane";
     pane.dataset.paneId = makeRequestId();
+    pane.dataset.platformKey = finalPlatform;
     pane.draggable = true;
 
     const head = document.createElement("div");
@@ -594,6 +741,13 @@
     iframe.className = "cmp-iframe";
     iframe.src = buildIframeUrl(finalPlatform);
     iframe.addEventListener("load", () => {
+      if (pane.dataset.platformKey === "kimi" && query) {
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.postMessage({ type: "AI_SEARCH_PRO_NEW_QUERY", query }, "*");
+          } catch (e) {}
+        }, 180);
+      }
       startRestoreForPane(pane, false);
       requestPaneSummary(pane, 1500, "diff", 1, 4500);
     });
@@ -606,6 +760,7 @@
         return;
       }
       iframe.src = buildIframeUrl(sel.value);
+      pane.dataset.platformKey = sel.value;
       syncPaneSelectors();
       setPaneState(pane, "restoring");
     });
@@ -780,6 +935,38 @@
 
   window.addEventListener("message", (event) => {
     const data = event.data || {};
+    if (data.type === EMBEDDED_SEND_DONE_EVENT && data.requestId) {
+      const pending = pendingSends.get(data.requestId);
+      if (pending && pending.expected.has(event.source)) {
+        if (data.ok === false && data.paneId) {
+          pending.failedPaneIds.add(data.paneId);
+        } else {
+          pending.done.add(event.source);
+        }
+        if (pending.done.size >= pending.expected.size) {
+          clearTimeout(pending.timer);
+          pendingSends.delete(data.requestId);
+          if (pending.failedPaneIds.size) {
+            const names = Array.from(pending.failedPaneIds)
+              .map(paneId => {
+                const pane = document.querySelector(`.cmp-pane[data-pane-id="${paneId}"]`);
+                if (!pane) return "未知";
+                const sel = pane.querySelector(".cmp-pane-select");
+                const key = sel ? sel.value : "";
+                return (AI_PLATFORMS[key] && AI_PLATFORMS[key].name) ? AI_PLATFORMS[key].name : "未知";
+              })
+              .filter(Boolean)
+              .join("、");
+            showToast(`部分失败：${names}`);
+          } else {
+            showToast("已同步发送到全部窗口");
+          }
+          setTimeout(() => scheduleAllSummaryExtraction(), 1200);
+          setTimeout(() => scheduleAllSummaryExtraction(), 2600);
+        }
+      }
+      return;
+    }
     if (data.type !== "AI_SEARCH_PRO_SUMMARY" || !data.requestId) return;
     const req = summaryRequests.get(data.requestId);
     if (!req) return;
