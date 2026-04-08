@@ -21,9 +21,20 @@
           <img src="../icons/compare-add-window.svg" width="18" height="18" alt="add" />
           <span>添加窗口</span>
         </button>
+        <button id="cmp-favorite-btn" class="cmp-btn">
+          <span>保存到备忘录</span>
+        </button>
+        <button id="cmp-export-btn" class="cmp-btn">
+          <span>导出 Markdown</span>
+        </button>
+        <button id="cmp-theme-btn" class="cmp-toggle">
+          <img class="cmp-theme-icon-sun" src="../icons/sun.svg" width="18" height="18" alt="sun" style="display:none;" />
+          <img class="cmp-theme-icon-moon" src="../icons/moon.svg" width="18" height="18" alt="moon" />
+          <span class="cmp-tooltip cmp-tooltip-right">切换深色模式</span>
+        </button>
         <button id="cmp-panel-toggle" class="cmp-toggle">
           <img src="../icons/compare-diff-toggle.svg" width="18" height="18" alt="toggle" />
-          <span class="cmp-tooltip cmp-tooltip-right">收起差异高亮</span>
+          <span class="cmp-tooltip cmp-tooltip-right">收起回答洞察</span>
         </button>
       </div>
     </header>
@@ -32,21 +43,17 @@
       <main id="cmp-grid" class="cmp-grid"></main>
       <aside id="cmp-panel" class="cmp-side">
         <div class="cmp-side-head">
-          <div class="cmp-side-title">差异高亮</div>
-          <div class="cmp-side-head-actions" style="display: flex; align-items: center; gap: 8px;">
-            <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ai-sp-text-light); cursor: pointer;">
-              <input type="checkbox" id="cmp-diff-only-toggle" style="margin: 0; cursor: pointer;">
-              <span>只看差异</span>
-            </label>
+          <div class="cmp-side-title">回答洞察</div>
+          <div class="cmp-side-head-actions">
             <button id="cmp-refresh-btn" class="cmp-btn cmp-refresh">
               <img src="../icons/compare-refresh.svg" width="18" height="18" alt="refresh" />
-              <span>刷新</span>
-              <span class="cmp-tooltip">刷新高亮</span>
+              <span>刷新回答</span>
             </button>
           </div>
         </div>
         <div id="cmp-panel-body" class="cmp-panel-body">
           <div class="cmp-legend">
+            <button type="button" class="cmp-tag cmp-tag-filter cmp-tag-all is-active" data-filter="all">全部</button>
             <button type="button" class="cmp-tag cmp-tag-filter cmp-tag-match" data-filter="match">一致</button>
             <button type="button" class="cmp-tag cmp-tag-filter cmp-tag-diff" data-filter="diff">差异</button>
             <button type="button" class="cmp-tag cmp-tag-filter cmp-tag-miss" data-filter="miss">缺失</button>

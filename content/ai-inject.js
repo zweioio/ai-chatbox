@@ -8,6 +8,8 @@
   const extensionOrigin = new URL(chrome.runtime.getURL("")).origin;
   const EMBEDDED_SEND_EVENT = "AI_SP_EMBEDDED_SEND";
   const EMBEDDED_SEND_DONE_EVENT = "AI_SP_EMBEDDED_SEND_DONE";
+  const EMBEDDED_SEND_READY_REQUEST_EVENT = "AI_SP_EMBEDDED_SEND_READY_REQUEST";
+  const EMBEDDED_SEND_READY_RESPONSE_EVENT = "AI_SP_EMBEDDED_SEND_READY_RESPONSE";
   const EMBEDDED_LOCATION_EVENT = "AI_SP_EMBEDDED_LOCATION";
   
   // 用于向父窗口同步当前的真实 URL (包含会话ID)
@@ -88,12 +90,34 @@
       setStyle(el, 'min-width', '0px');
       setStyle(el, 'flex', '0 0 0px');
     });
+
+    const likelySidebarCandidates = document.querySelectorAll('aside, nav, [role="navigation"], div[class*="sidebar"], div[class*="sider"], section[class*="sidebar"]');
+    likelySidebarCandidates.forEach(el => {
+      if (!isVisibleElement(el)) return;
+      const rect = el.getBoundingClientRect();
+      const looksLikeLeftSidebar = rect.left <= 8 && rect.width >= 160 && rect.width <= 420 && rect.height >= 420;
+      if (!looksLikeLeftSidebar) return;
+      setStyle(el, 'display', 'none');
+      setStyle(el, 'width', '0px');
+      setStyle(el, 'min-width', '0px');
+      setStyle(el, 'flex', '0 0 0px');
+      setStyle(el, 'overflow', 'hidden');
+      setStyle(el, 'pointer-events', 'none');
+    });
+
     const contents = document.querySelectorAll('.layout-content, .ant-layout-content, main[class*="layout"], div[class*="layout-content"]');
     contents.forEach(el => {
       setStyle(el, 'width', '100%');
       setStyle(el, 'max-width', '100%');
       setStyle(el, 'min-width', '0px');
       setStyle(el, 'flex', '1 1 auto');
+    });
+
+    const mains = document.querySelectorAll('main, [role="main"], #app, #root');
+    mains.forEach(el => {
+      setStyle(el, 'width', '100%');
+      setStyle(el, 'max-width', '100%');
+      setStyle(el, 'min-width', '0px');
     });
     const editors = document.querySelectorAll('#chat-input, textarea, div[data-slate-editor="true"][contenteditable="true"], div[role="textbox"][contenteditable="true"]');
     editors.forEach(el => {
@@ -130,8 +154,33 @@
     }
     if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
       return {
-        inputs: ['#chat-input', 'textarea', 'div[data-slate-editor="true"][contenteditable="true"]', 'div[role="textbox"][contenteditable="true"]', 'div[contenteditable="true"]'],
-        buttons: ['div[class*="operateBtn"]', 'button[aria-label*="发送"]', 'button[aria-label*="Send"]', 'button[class*="send"]', 'div[class*="send-btn"]', 'div[class*="send_btn"]', 'div[class*="chat-input-send"]', 'button[type="submit"]'],
+        inputs: [
+          '#chat-input',
+          'textarea[placeholder*="向千问"]',
+          'textarea[placeholder*="提问"]',
+          'input[placeholder*="向千问"]',
+          'input[placeholder*="提问"]',
+          'div[role="textbox"][aria-label*="向千问"]',
+          'div[role="textbox"][aria-label*="提问"]',
+          'div[data-slate-editor="true"][contenteditable="true"]',
+          'div[role="textbox"][contenteditable="true"]',
+          'div[role="textbox"]',
+          'textarea',
+          'input[type="text"]',
+          'div[contenteditable="true"]'
+        ],
+        buttons: [
+          'div[class*="operateBtn"]',
+          'button[aria-label*="发送"]',
+          'button[aria-label*="Send"]',
+          'div[role="button"][aria-label*="发送"]',
+          'div[role="button"][aria-label*="Send"]',
+          'button[class*="send"]',
+          'div[class*="send-btn"]',
+          'div[class*="send_btn"]',
+          'div[class*="chat-input-send"]',
+          'button[type="submit"]'
+        ],
         submitAssist: true,
       };
     }
@@ -420,6 +469,15 @@
       target.dispatchEvent(enterDown);
       target.dispatchEvent(enterPress);
       target.dispatchEvent(enterUp);
+
+      if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com') || host.includes('yuanbao.tencent.com')) {
+        const cmdEnterDown = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, metaKey: true, ctrlKey: true, bubbles: true, cancelable: true });
+        const cmdEnterPress = new KeyboardEvent("keypress", { key: "Enter", code: "Enter", keyCode: 13, which: 13, metaKey: true, ctrlKey: true, bubbles: true, cancelable: true });
+        const cmdEnterUp = new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, which: 13, metaKey: true, ctrlKey: true, bubbles: true, cancelable: true });
+        target.dispatchEvent(cmdEnterDown);
+        target.dispatchEvent(cmdEnterPress);
+        target.dispatchEvent(cmdEnterUp);
+      }
       
       if (shouldTemporarilyFocus) {
         requestAnimationFrame(() => target.blur());
@@ -476,6 +534,39 @@
         syncUrlToParent();
       }, submitDelay);
     }
+  }
+
+  function findSubmitTarget(config) {
+    const selectors = (config?.buttons || []).filter(Boolean);
+    for (const selector of selectors) {
+      try {
+        const button = document.querySelector(selector);
+        if (button && isVisibleElement(button)) return button;
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  function getReadyStableDelay() {
+    const host = window.location.hostname;
+    if (host.includes("qianwen.com") || host.includes("tongyi.aliyun.com")) return 960;
+    if (host.includes("deepseek.com")) return 420;
+    return 320;
+  }
+
+  function isPlatformReadyForSend() {
+    if (document.readyState !== "complete") return false;
+    const config = getConfig();
+    const inputEl = findInputTarget(config);
+    if (!inputEl || !isVisibleElement(inputEl)) return false;
+    const host = window.location.hostname;
+    if (host.includes("qianwen.com") || host.includes("tongyi.aliyun.com")) {
+      const submitBtn = findSubmitTarget(config);
+      const hasForm = Boolean(inputEl.closest("form"));
+      const placeholder = (inputEl.getAttribute("placeholder") || inputEl.getAttribute("aria-label") || "").trim();
+      return Boolean(submitBtn || hasForm || placeholder);
+    }
+    return true;
   }
 
   ensureHostLayoutStyle();
@@ -559,13 +650,28 @@
   window.addEventListener("message", (event) => {
     const data = event.data || {};
     const fromExtension = event.origin === extensionOrigin;
+    const fromParentPage = event.source === window.parent && typeof event.origin === "string";
+    const allowEmbeddedBridge = fromExtension || fromParentPage;
+    const responseOrigin = fromExtension ? extensionOrigin : event.origin;
 
-    if (fromExtension && data.type === EMBEDDED_SEND_EVENT && typeof data.text === "string") {
+    if (allowEmbeddedBridge && data.type === EMBEDDED_SEND_READY_REQUEST_EVENT) {
+      const requestId = typeof data.requestId === "string" ? data.requestId : "";
+      window.parent.postMessage({
+        type: EMBEDDED_SEND_READY_RESPONSE_EVENT,
+        requestId,
+        paneId: data.paneId,
+        ready: isPlatformReadyForSend(),
+        delay: getReadyStableDelay()
+      }, responseOrigin);
+      return;
+    }
+
+    if (allowEmbeddedBridge && data.type === EMBEDDED_SEND_EVENT && typeof data.text === "string") {
       const requestId = typeof data.requestId === "string" ? data.requestId : "";
       const processed = window.__aiSpProcessedSendIds ?? new Set();
       window.__aiSpProcessedSendIds = processed;
       if (requestId && processed.has(requestId)) {
-        window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId }, extensionOrigin);
+        window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId }, responseOrigin);
         return;
       }
       if (requestId) processed.add(requestId);
@@ -576,10 +682,10 @@
         const submitDelay = (host.includes("qianwen.com") || host.includes("tongyi.aliyun.com") || host.includes("deepseek.com")) ? 260 : 120;
         window.setTimeout(() => {
           window.__AI_SEARCH_PRO_SUBMIT_CHAT(true);
-          window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId, ok: true }, extensionOrigin);
+          window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId, ok: true }, responseOrigin);
         }, submitDelay);
       } else {
-        window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId, ok: inserted }, extensionOrigin);
+        window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId, ok: inserted }, responseOrigin);
       }
       return;
     }

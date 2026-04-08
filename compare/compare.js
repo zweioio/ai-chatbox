@@ -2,8 +2,8 @@
   const AI_PLATFORMS = {
     doubao: { name: "豆包", url: "https://www.doubao.com/chat/" },
     qianwen: { name: "千问", url: "https://www.qianwen.com/" },
-    deepseek: { name: "DeepSeek", url: "https://chat.deepseek.com/" },
     yuanbao: { name: "元宝", url: "https://yuanbao.tencent.com/chat/naQivTmsDa" },
+    deepseek: { name: "DeepSeek", url: "https://chat.deepseek.com/" },
     kimi: { name: "Kimi", url: "https://www.kimi.com/" },
     chatglm: { name: "智谱清言", url: "https://chatglm.cn/main/alltoolsdetail?lang=zh" },
     chatgpt: { name: "ChatGPT", url: "https://chatgpt.com/" },
@@ -19,6 +19,25 @@
     v2: true,
     v3: true
   };
+
+  function getPlatformIconUrl(platformKey) {
+    const iconMap = {
+      doubao: "doubao.png",
+      qianwen: "qianwen.png",
+      deepseek: "deepseek.png",
+      yuanbao: "yuanbao.png",
+      kimi: "kimi.png",
+      chatglm: "chatglm.png",
+      chatgpt: "chatgpt.png",
+      gemini: "gemini.png",
+      claude: "claude.png",
+      perplexity: "perplexity.png",
+      copilot: "copilot.png",
+      grok: "grok.png"
+    };
+    const fileName = iconMap[platformKey];
+    return fileName ? chrome.runtime.getURL(`assets/${fileName}`) : "";
+  }
 
   const PLATFORM_STRATEGY = {
     default: { restoreDelay: 1200, restoreTimeout: 4200, maxRetries: 2, retryGap: 700 },
@@ -51,6 +70,8 @@
   const restoreSummaryEl = document.getElementById("cmp-restore-summary");
   const selectEl = document.getElementById("cmp-platform-select");
   const addBtn = document.getElementById("cmp-add-btn");
+  const favoriteBtn = document.getElementById("cmp-favorite-btn");
+  const exportBtn = document.getElementById("cmp-export-btn");
   const countEl = document.getElementById("cmp-count");
   const refreshBtn = document.getElementById("cmp-refresh-btn");
   const panelEl = document.getElementById("cmp-panel");
@@ -60,13 +81,13 @@
   const toastEl = document.getElementById("cmp-toast");
   const grid = document.getElementById("cmp-grid");
   const bodyEl = document.getElementById("cmp-body");
+  const themeBtn = document.getElementById("cmp-theme-btn");
   const legendFilterEls = Array.from(document.querySelectorAll(".cmp-tag-filter"));
   const keywordsEl = document.getElementById("cmp-keywords");
   const keywordsSectionEl = document.getElementById("cmp-keywords-section");
   const keywordsMoreEl = document.getElementById("cmp-keywords-more");
   const keywordsToggleEl = document.getElementById("cmp-keywords-toggle");
   const diffListEl = document.getElementById("cmp-diff-list");
-  const diffOnlyToggleEl = document.getElementById("cmp-diff-only-toggle");
   const minPanes = 2;
   const maxPanes = 4;
   const paneSummaries = new Map();
@@ -75,20 +96,31 @@
   const EXT_ORIGIN = location.origin;
   const EMBEDDED_SEND_EVENT = "AI_SP_EMBEDDED_SEND";
   const EMBEDDED_SEND_DONE_EVENT = "AI_SP_EMBEDDED_SEND_DONE";
+  const EMBEDDED_SEND_READY_REQUEST_EVENT = "AI_SP_EMBEDDED_SEND_READY_REQUEST";
+  const EMBEDDED_SEND_READY_RESPONSE_EVENT = "AI_SP_EMBEDDED_SEND_READY_RESPONSE";
+  const FAVORITES_STORAGE_KEY = "aiSearchProFavorites";
   const pendingSends = new Map();
+  const sendReadyRequests = new Map();
   const collapsedDiffCards = new Map();
+  const THEME_STORAGE_KEY = "cmp-theme";
+  const SEND_READY_MAX_RETRIES = 8;
+  const SEND_READY_RETRY_GAP = 450;
+  const SEND_READY_STABLE_DELAY = 320;
   let keywordsCollapsed = false;
   let keywordsExpanded = false;
   let activeKeyword = "";
-  let activeDiffFilter = "";
+  let activeDiffFilter = "all";
   let draggingPaneId = "";
   let paneOrderSeed = 1;
+  let currentTheme = hash.get("theme") === "dark" ? "dark" : (localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light");
   const ENABLE_DRAG_REORDER = true;
   const dragIconUrl = chrome.runtime.getURL("icons/drag.svg");
   const closeIconUrl = chrome.runtime.getURL("icons/close.svg");
   const webIconUrl = chrome.runtime.getURL("icons/web.svg");
   const moveLeftIconUrl = chrome.runtime.getURL("icons/platform-arrow-left.svg");
   const moveRightIconUrl = chrome.runtime.getURL("icons/platform-arrow-right.svg");
+  const compareRefreshIconUrl = chrome.runtime.getURL("icons/compare-refresh.svg");
+  const retryIconUrl = chrome.runtime.getURL("icons/retry.svg");
 
   if (queryTitleEl) queryTitleEl.textContent = query || "内容对比";
   if (globalInputEl) globalInputEl.value = query;
@@ -116,6 +148,102 @@
 
   function makeRequestId() {
     return `r_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function getPaneExportPayload() {
+    return getPaneNodes().map((pane) => {
+      const paneId = pane.dataset.paneId;
+      const select = pane.querySelector(".cmp-pane-select");
+      const key = select ? select.value : "";
+      const iframe = pane.querySelector(".cmp-iframe");
+      return {
+        paneId,
+        platform: key,
+        platformName: AI_PLATFORMS[key]?.name || key,
+        summary: paneSummaries.get(paneId) || "",
+        url: iframe?.src || initialUrls[key] || ""
+      };
+    });
+  }
+
+  function collectInsightMarkdown() {
+    const items = Array.from(diffListEl?.querySelectorAll(".cmp-diff-item") || []);
+    if (!items.length) return "";
+    return items.map((item, index) => {
+      const type = item.querySelector(".cmp-diff-type")?.textContent?.trim() || "";
+      const title = item.querySelector(".cmp-diff-title")?.textContent?.trim() || "";
+      const text = item.querySelector(".cmp-diff-text")?.textContent?.trim() || "";
+      return `${index + 1}. [${type}] ${title}\n${text}`;
+    }).join("\n\n");
+  }
+
+  function buildCompareMarkdown() {
+    const panes = getPaneExportPayload();
+    const lines = [`# 内容对比`, ``, `- 问题：${query || "未命名问题"}`, `- 导出时间：${new Date().toLocaleString()}`, ``];
+    panes.forEach((pane) => {
+      lines.push(`## ${pane.platformName}`);
+      if (pane.url) lines.push(`- 地址：${pane.url}`);
+      lines.push(``);
+      lines.push(pane.summary || `暂无摘要`);
+      lines.push(``);
+    });
+    const insights = collectInsightMarkdown();
+    if (insights) {
+      lines.push(`## 回答洞察`);
+      lines.push(``);
+      lines.push(insights);
+      lines.push(``);
+    }
+    return lines.join("\n");
+  }
+
+  async function saveFavoriteRecord() {
+    const data = await chrome.storage.local.get([FAVORITES_STORAGE_KEY]);
+    const list = Array.isArray(data?.[FAVORITES_STORAGE_KEY]) ? data[FAVORITES_STORAGE_KEY] : [];
+    const record = {
+      id: makeRequestId(),
+      title: query || "未命名问题",
+      query,
+      createdAt: Date.now(),
+      panes: getPaneExportPayload(),
+      markdown: buildCompareMarkdown()
+    };
+    await chrome.storage.local.set({ [FAVORITES_STORAGE_KEY]: [record, ...list].slice(0, 100) });
+  }
+
+  function exportMarkdownFile() {
+    const content = buildCompareMarkdown();
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${(query || "内容对比").slice(0, 24)}.md`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function applyTheme(theme) {
+    currentTheme = theme === "dark" ? "dark" : "light";
+    if (currentTheme === "dark") {
+      document.documentElement.setAttribute("data-cmp-theme", "dark");
+    } else {
+      document.documentElement.removeAttribute("data-cmp-theme");
+    }
+    localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+    updateThemeButton();
+  }
+
+  function updateThemeButton() {
+    if (!themeBtn) return;
+    const sunIcon = themeBtn.querySelector(".cmp-theme-icon-sun");
+    const moonIcon = themeBtn.querySelector(".cmp-theme-icon-moon");
+    const tooltip = themeBtn.querySelector(".cmp-tooltip");
+    const isDark = currentTheme === "dark";
+    if (sunIcon) sunIcon.style.display = isDark ? "block" : "none";
+    if (moonIcon) moonIcon.style.display = isDark ? "none" : "block";
+    if (tooltip) tooltip.textContent = isDark ? "切换浅色模式" : "切换深色模式";
   }
 
   function applyKeywordsCollapsedState() {
@@ -178,6 +306,96 @@
 
   function getPaneNodes() {
     return Array.from(grid.querySelectorAll(".cmp-pane"));
+  }
+
+  function getPaneName(paneId) {
+    const pane = document.querySelector(`.cmp-pane[data-pane-id="${paneId}"]`);
+    if (!pane) return "未知";
+    const sel = pane.querySelector(".cmp-pane-select");
+    const key = sel ? sel.value : "";
+    return (AI_PLATFORMS[key] && AI_PLATFORMS[key].name) ? AI_PLATFORMS[key].name : "未知";
+  }
+
+  function clearReadyRequestEntry(key) {
+    const entry = sendReadyRequests.get(key);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    sendReadyRequests.delete(key);
+  }
+
+  function clearReadyRequestsByRequestId(requestId) {
+    Array.from(sendReadyRequests.keys()).forEach((key) => {
+      if (key.startsWith(`${requestId}:`)) clearReadyRequestEntry(key);
+    });
+  }
+
+  function finalizePendingSend(requestId, fallbackText) {
+    const pending = pendingSends.get(requestId);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    clearReadyRequestsByRequestId(requestId);
+    pendingSends.delete(requestId);
+    if (pending.failedPaneIds.size) {
+      const names = Array.from(pending.failedPaneIds).map(getPaneName).filter(Boolean).join("、");
+      showToast(fallbackText || `成功 ${pending.done.size}/${pending.expected.size}，失败：${names}`);
+    } else {
+      showToast("已同步发送到全部窗口");
+    }
+    setTimeout(() => scheduleAllSummaryExtraction(), 1200);
+    setTimeout(() => scheduleAllSummaryExtraction(), 2600);
+  }
+
+  function markPaneSendFailure(requestId, paneId) {
+    const pending = pendingSends.get(requestId);
+    if (!pending || pending.done.has(paneId)) return;
+    pending.failedPaneIds.add(paneId);
+    if (pending.done.size + pending.failedPaneIds.size >= pending.expected.size) {
+      const names = Array.from(pending.failedPaneIds).map(getPaneName).filter(Boolean).join("、");
+      finalizePendingSend(requestId, `成功 ${pending.done.size}/${pending.expected.size}，失败：${names}`);
+    }
+  }
+
+  function dispatchSendToPane(pane, text, requestId) {
+    const iframe = pane.querySelector(".cmp-iframe");
+    if (!iframe || !iframe.contentWindow) {
+      markPaneSendFailure(requestId, pane.dataset.paneId);
+      return;
+    }
+    try {
+      iframe.contentWindow.postMessage({ type: EMBEDDED_SEND_EVENT, text, submit: true, requestId, paneId: pane.dataset.paneId }, "*");
+    } catch (e) {
+      markPaneSendFailure(requestId, pane.dataset.paneId);
+    }
+  }
+
+  function queueSendToPane(pane, text, requestId, attempt = 1) {
+    const iframe = pane.querySelector(".cmp-iframe");
+    const paneId = pane.dataset.paneId;
+    if (!iframe || !iframe.contentWindow) {
+      markPaneSendFailure(requestId, paneId);
+      return;
+    }
+    const key = `${requestId}:${paneId}`;
+    clearReadyRequestEntry(key);
+    const timer = window.setTimeout(() => {
+      clearReadyRequestEntry(key);
+      if (attempt < SEND_READY_MAX_RETRIES) {
+        queueSendToPane(pane, text, requestId, attempt + 1);
+      } else {
+        markPaneSendFailure(requestId, paneId);
+      }
+    }, SEND_READY_RETRY_GAP);
+    sendReadyRequests.set(key, { pane, text, requestId, paneId, attempt, timer });
+    try {
+      iframe.contentWindow.postMessage({ type: EMBEDDED_SEND_READY_REQUEST_EVENT, requestId, paneId }, "*");
+    } catch (e) {
+      clearReadyRequestEntry(key);
+      if (attempt < SEND_READY_MAX_RETRIES) {
+        queueSendToPane(pane, text, requestId, attempt + 1);
+      } else {
+        markPaneSendFailure(requestId, paneId);
+      }
+    }
   }
 
   function getOrderedPanes() {
@@ -392,7 +610,6 @@
   }
 
   function handleDiffToggle() {
-    const isDiffOnly = !!diffOnlyToggleEl?.checked;
     const items = diffListEl.querySelectorAll(".cmp-diff-item");
     items.forEach(item => {
       const matchCountBadge = item.querySelector(".cmp-badge.match");
@@ -402,18 +619,14 @@
       const missCountBadge = item.querySelector(".cmp-badge.miss");
       const missCount = missCountBadge ? parseInt(missCountBadge.textContent.replace(/[^0-9]/g, ''), 10) : 0;
       const keywordHit = !activeKeyword || (item.dataset.keywords || "").split("|").includes(activeKeyword);
-      const diffVisible = !(isDiffOnly && diffCount === 0 && matchCount > 0);
       const typeVisible =
         !activeDiffFilter ||
+        activeDiffFilter === "all" ||
         (activeDiffFilter === "match" && matchCount > 0) ||
         (activeDiffFilter === "diff" && diffCount > 0) ||
         (activeDiffFilter === "miss" && missCount > 0);
-      item.style.display = keywordHit && diffVisible && typeVisible ? "flex" : "none";
+      item.style.display = keywordHit && typeVisible ? "flex" : "none";
     });
-  }
-
-  if (diffOnlyToggleEl) {
-    diffOnlyToggleEl.addEventListener("change", handleDiffToggle);
   }
 
   if (keywordsToggleEl) {
@@ -437,8 +650,8 @@
   if (legendFilterEls.length) {
     legendFilterEls.forEach(btn => {
       btn.addEventListener("click", () => {
-        const filter = btn.dataset.filter || "";
-        activeDiffFilter = activeDiffFilter === filter ? "" : filter;
+        const filter = btn.dataset.filter || "all";
+        activeDiffFilter = filter;
         legendFilterEls.forEach(el => el.classList.toggle("is-active", el.dataset.filter === activeDiffFilter));
         handleDiffToggle();
       });
@@ -552,6 +765,7 @@
       const score = diffCount * 2 + missCount + (activeKeyword && allTokens.includes(activeKeyword) ? 3 : 0);
       cards.push({
         paneId: d.paneId,
+        platformKey: d.platform,
         title,
         uniqText,
         matchCount,
@@ -570,19 +784,24 @@
     ];
 
     sortedCards.forEach(cardData => {
+      const iconUrl = cardData.platformKey ? getPlatformIconUrl(cardData.platformKey) : "";
       const card = document.createElement("div");
       card.className = "cmp-diff-item";
       card.dataset.keywords = cardData.allTokens.join("|");
+      card.dataset.platform = cardData.title;
       card.innerHTML = `
-      <div class="cmp-diff-head">
-        <span class="cmp-diff-title">${cardData.title} · ${cardData.uniqText}</span>
-        <button type="button" class="cmp-diff-toggle">折叠</button>
+      <div class="cmp-diff-head" role="button" tabindex="0" aria-expanded="true">
+        <div class="cmp-diff-head-left">
+          ${iconUrl ? `<img class="cmp-diff-icon" src="${iconUrl}" alt="${cardData.title}"/>` : ""}
+          <span class="cmp-diff-title">${cardData.title}</span>
+        </div>
+        <div class="cmp-diff-badges">
+          <span class="cmp-badge match">一致 ${cardData.matchCount}</span>
+          <span class="cmp-badge diff">差异 ${cardData.diffCount}</span>
+          <span class="cmp-badge miss">缺失 ${cardData.missCount}</span>
+        </div>
       </div>
-      <div class="cmp-diff-badges">
-        <span class="cmp-badge match">一致 ${cardData.matchCount}</span>
-        <span class="cmp-badge diff">差异 ${cardData.diffCount}</span>
-        <span class="cmp-badge miss">缺失 ${cardData.missCount}</span>
-      </div>
+      <div class="cmp-diff-meta">${cardData.uniqText}</div>
       <div class="cmp-diff-text">${cardData.snippetHtml}</div>
     `;
 
@@ -603,15 +822,22 @@
         });
       });
 
-      const cardToggle = card.querySelector(".cmp-diff-toggle");
-      if (cardToggle) {
+      const cardHead = card.querySelector(".cmp-diff-head");
+      if (cardHead) {
         const collapsed = collapsedDiffCards.get(cardData.paneId) === true;
         card.classList.toggle("is-collapsed", collapsed);
-        cardToggle.textContent = collapsed ? "展开" : "折叠";
-        cardToggle.addEventListener("click", () => {
+        cardHead.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        const toggleCard = () => {
           const collapsed = card.classList.toggle("is-collapsed");
           collapsedDiffCards.set(cardData.paneId, collapsed);
-          cardToggle.textContent = collapsed ? "展开" : "折叠";
+          cardHead.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        };
+        cardHead.addEventListener("click", toggleCard);
+        cardHead.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            toggleCard();
+          }
         });
       }
 
@@ -642,40 +868,23 @@
     const failedPaneIds = new Set();
     const bridge = FEATURE_SWITCH.v2 ? getBridgeContext() : "";
     getPaneNodes().forEach(pane => {
-      const iframe = pane.querySelector(".cmp-iframe");
-      if (!iframe || !iframe.contentWindow) return;
-      expected.add(iframe.contentWindow);
+      const paneId = pane.dataset.paneId;
+      if (!paneId) return;
+      expected.add(paneId);
       const state = paneStates.get(pane.dataset.paneId) || {};
       let sendText = q;
       if (FEATURE_SWITCH.v2 && state.status === "fallback" && bridge) {
         sendText = `参考上下文继续：${bridge}\n\n用户问题：${q}`;
       }
-      try {
-        iframe.contentWindow.postMessage({ type: EMBEDDED_SEND_EVENT, text: sendText, submit: true, requestId, paneId: pane.dataset.paneId }, "*");
-      } catch (e) {}
+      queueSendToPane(pane, sendText, requestId, 1);
     });
+    if (!expected.size) return;
     const done = new Set();
     const timer = setTimeout(() => {
       const pending = pendingSends.get(requestId);
       if (!pending) return;
-      pendingSends.delete(requestId);
-      if (pending.failedPaneIds.size) {
-        const names = Array.from(pending.failedPaneIds)
-          .map(paneId => {
-            const pane = document.querySelector(`.cmp-pane[data-pane-id="${paneId}"]`);
-            if (!pane) return "未知";
-            const sel = pane.querySelector(".cmp-pane-select");
-            const key = sel ? sel.value : "";
-            return (AI_PLATFORMS[key] && AI_PLATFORMS[key].name) ? AI_PLATFORMS[key].name : "未知";
-          })
-          .filter(Boolean)
-          .join("、");
-        showToast(`成功 ${pending.done.size}/${pending.expected.size}，失败：${names}`);
-      } else {
-        showToast(`已发送 ${pending.done.size}/${pending.expected.size} 个窗口`);
-      }
-      setTimeout(() => scheduleAllSummaryExtraction(), 1200);
-      setTimeout(() => scheduleAllSummaryExtraction(), 2600);
+      const names = Array.from(pending.failedPaneIds).map(getPaneName).filter(Boolean).join("、");
+      finalizePendingSend(requestId, pending.failedPaneIds.size ? `成功 ${pending.done.size}/${pending.expected.size}，失败：${names}` : `已发送 ${pending.done.size}/${pending.expected.size} 个窗口`);
     }, 4500);
     pendingSends.set(requestId, { expected, done, failedPaneIds, timer });
     showToast("正在同步发送...");
@@ -718,7 +927,7 @@
 
     const retryBtn = document.createElement("button");
     retryBtn.className = "cmp-pane-retry";
-    retryBtn.textContent = "重试";
+    retryBtn.innerHTML = `<img src="${retryIconUrl}" alt="retry" width="18" height="18" /><span class="cmp-tooltip">重试</span>`;
     retryBtn.style.display = "none";
 
     const moveLeftBtn = document.createElement("button");
@@ -897,9 +1106,9 @@
   updateRestoreSummary();
 
   if (refreshBtn) {
+    refreshBtn.innerHTML = `<img src="${compareRefreshIconUrl}" width="18" height="18" alt="refresh" /><span>刷新回答</span>`;
     refreshBtn.addEventListener("click", () => {
       scheduleAllSummaryExtraction();
-      showToast("正在刷新高亮...");
     });
   }
 
@@ -908,10 +1117,30 @@
     panelToggleEl.addEventListener("click", () => {
       panelEl.classList.toggle("collapsed");
       const collapsed = panelEl.classList.contains("collapsed");
-      if (tipEl) tipEl.textContent = collapsed ? "展开差异高亮" : "收起差异高亮";
+      if (tipEl) tipEl.textContent = collapsed ? "展开回答洞察" : "收起回答洞察";
       if (bodyEl) bodyEl.classList.toggle("side-collapsed", collapsed);
     });
-    if (tipEl) tipEl.textContent = "收起差异高亮";
+    if (tipEl) tipEl.textContent = "收起回答洞察";
+  }
+
+  if (themeBtn) {
+    themeBtn.addEventListener("click", () => {
+      applyTheme(currentTheme === "dark" ? "light" : "dark");
+    });
+  }
+
+  if (favoriteBtn) {
+    favoriteBtn.addEventListener("click", async () => {
+      await saveFavoriteRecord();
+      showToast("已保存到备忘录");
+    });
+  }
+
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      exportMarkdownFile();
+      showToast("已导出 Markdown");
+    });
   }
 
   if (sendBtn && globalInputEl) {
@@ -935,34 +1164,37 @@
 
   window.addEventListener("message", (event) => {
     const data = event.data || {};
+    if (data.type === EMBEDDED_SEND_READY_RESPONSE_EVENT && data.requestId && data.paneId) {
+      const key = `${data.requestId}:${data.paneId}`;
+      const entry = sendReadyRequests.get(key);
+      if (!entry) return;
+      clearReadyRequestEntry(key);
+      const pending = pendingSends.get(data.requestId);
+      if (!pending || pending.done.has(data.paneId) || pending.failedPaneIds.has(data.paneId)) return;
+      if (data.ready) {
+        const stableDelay = typeof data.delay === "number" ? data.delay : SEND_READY_STABLE_DELAY;
+        window.setTimeout(() => {
+          dispatchSendToPane(entry.pane, entry.text, data.requestId);
+        }, stableDelay);
+      } else if (entry.attempt < SEND_READY_MAX_RETRIES) {
+        queueSendToPane(entry.pane, entry.text, data.requestId, entry.attempt + 1);
+      } else {
+        markPaneSendFailure(data.requestId, data.paneId);
+      }
+      return;
+    }
     if (data.type === EMBEDDED_SEND_DONE_EVENT && data.requestId) {
       const pending = pendingSends.get(data.requestId);
-      if (pending && pending.expected.has(event.source)) {
+      if (pending && data.paneId && pending.expected.has(data.paneId)) {
         if (data.ok === false && data.paneId) {
           pending.failedPaneIds.add(data.paneId);
         } else {
-          pending.done.add(event.source);
+          pending.done.add(data.paneId);
         }
-        if (pending.done.size >= pending.expected.size) {
-          clearTimeout(pending.timer);
-          pendingSends.delete(data.requestId);
-          if (pending.failedPaneIds.size) {
-            const names = Array.from(pending.failedPaneIds)
-              .map(paneId => {
-                const pane = document.querySelector(`.cmp-pane[data-pane-id="${paneId}"]`);
-                if (!pane) return "未知";
-                const sel = pane.querySelector(".cmp-pane-select");
-                const key = sel ? sel.value : "";
-                return (AI_PLATFORMS[key] && AI_PLATFORMS[key].name) ? AI_PLATFORMS[key].name : "未知";
-              })
-              .filter(Boolean)
-              .join("、");
-            showToast(`部分失败：${names}`);
-          } else {
-            showToast("已同步发送到全部窗口");
-          }
-          setTimeout(() => scheduleAllSummaryExtraction(), 1200);
-          setTimeout(() => scheduleAllSummaryExtraction(), 2600);
+        if (data.paneId) clearReadyRequestEntry(`${data.requestId}:${data.paneId}`);
+        if (pending.done.size + pending.failedPaneIds.size >= pending.expected.size) {
+          const names = Array.from(pending.failedPaneIds).map(getPaneName).filter(Boolean).join("、");
+          finalizePendingSend(data.requestId, pending.failedPaneIds.size ? `部分失败：${names}` : "已同步发送到全部窗口");
         }
       }
       return;
@@ -984,4 +1216,5 @@
   });
 
   scheduleAllSummaryExtraction();
+  applyTheme(currentTheme);
 })();

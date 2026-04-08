@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>提示词库</title>
+  <link rel="stylesheet" href="prompt_library.css">
+</head>
+<body>
+  <div class="pl-topbar">
+    <div class="pl-topbar-inner">
+      <div class="pl-topbar-brand">
+        <img class="pl-topbar-logo" src="../icons/icon48.png" alt="">
+        <span class="pl-topbar-title">OmniAI Search</span>
+      </div>
+      <div class="pl-topbar-actions">
+        <button id="pl-open-settings-btn" class="pl-topbar-btn" type="button">设置</button>
+        <button id="pl-open-library-btn" class="pl-topbar-btn is-active" type="button">提示词库</button>
+        <button id="pl-open-memo-btn" class="pl-topbar-btn" type="button">备忘录</button>
+        <button id="pl-open-compare-btn" class="pl-topbar-btn" type="button">内容对比</button>
+      </div>
+    </div>
+  </div>
+  <div class="pl-wrap">
+    <div class="pl-hero">
+      <div class="pl-hero-copy">
+        <span class="pl-badge">Prompt Library</span>
+        <h1>提示词库</h1>
+        <p>参考竞品重做为更完整的提示词中心，支持搜索、图标、变量插入、复制、导入导出和快速编辑。</p>
+      </div>
+      <div class="pl-actions">
+        <button id="pl-import-btn">导入 JSON</button>
+        <button id="pl-export-btn">导出 JSON</button>
+        <button id="pl-add-btn" class="primary">新增提示词</button>
+      </div>
+    </div>
+    <input id="pl-import-input" type="file" accept="application/json" hidden />
+    <div class="pl-toolbar">
+      <div class="pl-search">
+        <input id="pl-search-input" type="search" placeholder="搜索标题、内容、变量" />
+      </div>
+      <div class="pl-summary">
+        <span id="pl-count-text">0 条提示词</span>
+        <span id="pl-status-text">已同步</span>
+      </div>
+    </div>
+    <div class="pl-variables">
+      <div class="pl-section-title">可用变量</div>
+      <div class="pl-variable-list">
+        <button class="pl-variable-chip" data-variable="{{text}}">{{text}} 选中文本</button>
+        <button class="pl-variable-chip" data-variable="{{context}}">{{context}} 上下文</button>
+        <button class="pl-variable-chip" data-variable="{{page}}">{{page}} 页面标题</button>
+        <button class="pl-variable-chip" data-variable="{{url}}">{{url}} 页面地址</button>
+        <button class="pl-variable-chip" data-variable="{{time}}">{{time}} 当前时间</button>
+      </div>
+    </div>
+    <div id="pl-list" class="pl-list"></div>
+    <div id="pl-empty" class="pl-empty" hidden>
+      <div class="pl-empty-icon">⌘</div>
+      <strong>没有找到匹配的提示词</strong>
+      <span>可以换个关键词试试，或者新建一条提示词。</span>
+    </div>
+    <div class="pl-foot">
+      <button id="pl-reset-btn">恢复默认</button>
+      <button id="pl-save-btn" class="primary">保存全部修改</button>
+    </div>
+  </div>
+  <div id="pl-editor-mask" class="pl-editor-mask" hidden>
+    <div class="pl-editor">
+      <div class="pl-editor-head">
+        <div>
+          <strong id="pl-editor-title">新增提示词</strong>
+          <p>支持图标、变量和实时预览</p>
+        </div>
+        <button id="pl-editor-close" class="pl-icon-btn">✕</button>
+      </div>
+      <div class="pl-editor-body">
+        <div class="pl-grid">
+          <div class="pl-field">
+            <label for="pl-form-title">标题</label>
+            <input id="pl-form-title" class="pl-input" maxlength="40" placeholder="例如：代码审查" />
+          </div>
+          <div class="pl-field pl-icon-field">
+            <label for="pl-form-icon">图标</label>
+            <input id="pl-form-icon" class="pl-input" maxlength="4" placeholder="💡" />
+          </div>
+        </div>
+        <div class="pl-field">
+          <label for="pl-form-template">提示词内容</label>
+          <textarea id="pl-form-template" class="pl-textarea" placeholder="请输入提示词内容"></textarea>
+        </div>
+        <div class="pl-inline-tools">
+          <span>插入变量</span>
+          <div class="pl-variable-list">
+            <button class="pl-variable-chip" data-variable="{{text}}">{{text}}</button>
+            <button class="pl-variable-chip" data-variable="{{context}}">{{context}}</button>
+            <button class="pl-variable-chip" data-variable="{{page}}">{{page}}</button>
+            <button class="pl-variable-chip" data-variable="{{url}}">{{url}}</button>
+            <button class="pl-variable-chip" data-variable="{{time}}">{{time}}</button>
+          </div>
+        </div>
+        <div class="pl-grid">
+          <div class="pl-field">
+            <label class="pl-checkbox">
+              <input id="pl-form-enabled" type="checkbox" checked />
+              <span>启用这条提示词</span>
+            </label>
+          </div>
+        </div>
+        <div class="pl-preview">
+          <div class="pl-section-title">预览效果</div>
+          <div id="pl-preview-text" class="pl-preview-box"></div>
+        </div>
+      </div>
+      <div class="pl-editor-foot">
+        <button id="pl-editor-delete" class="danger">删除</button>
+        <div class="pl-editor-actions">
+          <button id="pl-editor-cancel">取消</button>
+          <button id="pl-editor-save" class="primary">保存提示词</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="prompt_library.js"></script>
+</body>
+</html>

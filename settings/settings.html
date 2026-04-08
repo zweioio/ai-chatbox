@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设置中心</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="settings-page">
+    <div class="settings-toolbar">
+      <div class="settings-toolbar-inner">
+        <div class="settings-toolbar-brand">
+          <img class="settings-brand-logo" src="../icons/icon48.png" alt="">
+          <span class="settings-toolbar-title">OmniAI Search</span>
+        </div>
+        <div class="settings-toolbar-actions">
+          <button id="open-settings-home-btn" class="settings-action-btn is-active" type="button">设置</button>
+          <button id="open-prompt-library-btn" class="settings-action-btn" type="button">提示词库</button>
+          <button id="open-memo-btn" class="settings-action-btn" type="button">备忘录</button>
+          <button id="open-compare-btn" class="settings-action-btn" type="button">内容对比</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-shell">
+      <aside class="settings-sidebar">
+        <nav class="settings-nav" id="settings-nav" aria-label="设置导航">
+          <button class="settings-nav-item is-active" data-section-target="general">
+            <span class="settings-nav-icon" data-nav-icon="general"></span>
+            <span>通用设置</span>
+          </button>
+          <button class="settings-nav-item" data-section-target="assistants">
+            <span class="settings-nav-icon" data-nav-icon="assistants"></span>
+            <span>AI 平台</span>
+          </button>
+          <button class="settings-nav-item" data-section-target="selection-toolbar">
+            <span class="settings-nav-icon" data-nav-icon="selection-toolbar"></span>
+            <span>划词工具栏</span>
+          </button>
+          <button class="settings-nav-item" data-section-target="search-assistant">
+            <span class="settings-nav-icon" data-nav-icon="search-assistant"></span>
+            <span>搜索助手</span>
+          </button>
+        </nav>
+        <div class="settings-sidebar-note">
+          <span class="settings-save-state is-idle" id="settings-save-state">设置已同步</span>
+        </div>
+      </aside>
+
+      <main class="settings-main">
+        <div class="settings-sections">
+          <section class="settings-section" id="general" data-section="general">
+            <div class="settings-section-head">
+              <div>
+                <h2>主题模式</h2>
+                <p>选择固定深浅色，或自动跟随系统环境</p>
+              </div>
+            </div>
+            <div class="settings-card">
+              <div class="settings-option-grid theme-grid">
+                <label class="settings-choice-card">
+                  <input type="radio" name="theme" value="auto">
+                  <span class="settings-choice-icon" data-theme-icon="auto"></span>
+                  <span class="settings-choice-copy">
+                    <strong>自动</strong>
+                    <span>跟随系统环境</span>
+                  </span>
+                </label>
+                <label class="settings-choice-card">
+                  <input type="radio" name="theme" value="dark">
+                  <span class="settings-choice-icon" data-theme-icon="dark"></span>
+                  <span class="settings-choice-copy">
+                    <strong>深色模式</strong>
+                    <span>适合夜间使用</span>
+                  </span>
+                </label>
+                <label class="settings-choice-card">
+                  <input type="radio" name="theme" value="light">
+                  <span class="settings-choice-icon" data-theme-icon="light"></span>
+                  <span class="settings-choice-copy">
+                    <strong>浅色模式</strong>
+                    <span>保持明亮观感</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section" id="assistants" data-section="assistants">
+            <div class="settings-section-head">
+              <div>
+                <h2>AI 平台</h2>
+                <p>控制 AI 平台出现在小窗、侧边栏和划词工具栏里</p>
+              </div>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-topline">
+                <span class="settings-subtitle">显示 AI 平台</span>
+                <label class="settings-checkline">
+                  <input type="checkbox" id="select-all-platforms">
+                  <span>全选</span>
+                </label>
+              </div>
+              <div class="settings-chip-grid" id="settings-platform-list"></div>
+            </div>
+          </section>
+
+          <section class="settings-section" id="selection-toolbar" data-section="selection-toolbar">
+            <div class="settings-section-head">
+              <div>
+                <h2>划词工具栏</h2>
+                <p>管理划词菜单工具栏，支持开关、显示模式和预览联动</p>
+              </div>
+            </div>
+
+            <div class="settings-stack">
+              <div class="settings-card settings-switch-card">
+                <div class="settings-switch-row">
+                  <div class="settings-switch-copy">
+                    <strong id="selection-toolbar-switch-title">开启划词工具栏</strong>
+                    <span>启用后，选中文本后会出现工具栏</span>
+                  </div>
+                  <label class="settings-switch">
+                    <input type="checkbox" id="selection-toolbar-enabled">
+                    <span class="settings-switch-slider"></span>
+                  </label>
+                </div>
+                <div class="selection-preview-stage" id="selection-preview-stage">
+                  <div class="selection-preview-bar" id="selection-preview-bar"></div>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="settings-card-title">显示模式</div>
+                <div class="settings-card-desc">显示图标和文字，或只显示图标</div>
+                <div class="settings-option-grid">
+                  <label class="settings-mode-card">
+                    <input type="radio" name="selection-display-mode" value="text">
+                    <span class="settings-mode-copy">
+                      <strong>标准模式</strong>
+                      <span>显示图标和文字</span>
+                    </span>
+                  </label>
+                  <label class="settings-mode-card">
+                    <input type="radio" name="selection-display-mode" value="icon">
+                    <span class="settings-mode-copy">
+                      <strong>图标模式</strong>
+                      <span>显示图标，会更加紧凑</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="settings-card-title">划词菜单</div>
+                <div class="settings-card-desc">拖动调整快捷菜单顺序，预览会同步更新</div>
+                <div class="settings-prompt-list" id="selection-quick-actions-list"></div>
+              </div>
+
+              <div class="settings-card">
+                <div class="settings-card-title">更多菜单</div>
+                <div class="settings-card-desc">可多选，选中后会显示在划词面板的更多菜单中</div>
+                <div class="settings-prompt-grid" id="selection-more-actions-list"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section" id="search-assistant" data-section="search-assistant">
+            <div class="settings-section-head">
+              <div>
+                <h2>搜索助手</h2>
+                <p>在支持的搜索引擎结果页显示 AI 小窗入口</p>
+              </div>
+            </div>
+
+            <div class="settings-stack">
+              <div class="settings-card settings-switch-card">
+                <div class="settings-switch-row">
+                  <div class="settings-switch-copy">
+                    <strong id="search-assistant-switch-title">开启搜索助手</strong>
+                    <span>启用后，搜索结果页旁会显示 AI 驱动的小窗</span>
+                  </div>
+                  <label class="settings-switch">
+                    <input type="checkbox" id="search-assistant-enabled">
+                    <span class="settings-switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-card" id="search-engine-card">
+                <div class="settings-card-title">搜索引擎</div>
+                <div class="settings-card-desc">按需开启支持的搜索引擎</div>
+                <div class="settings-chip-grid" id="settings-engine-list"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

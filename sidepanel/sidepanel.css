@@ -1,0 +1,91 @@
+html, body {
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+}
+
+#ai-sp-sidepanel-root {
+  width: 100%;
+  height: 100%;
+}
+
+#ai-sp-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#ai-sp-container.is-sidebar-mode {
+  position: relative !important;
+  top: 0 !important;
+  right: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  border-left: none !important;
+}
+
+#ai-sp-container.is-sidebar-mode .ai-sp-sidebar-resizer,
+#ai-sp-container.is-sidebar-mode .ai-sp-drag-handle,
+#ai-sp-close-btn {
+  display: none !important;
+}
+
+.ai-sp-platforms-wrapper {
+  position: relative;
+  display: grid !important;
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
+  align-items: center;
+  column-gap: 4px;
+  padding: 0 6px;
+  background: var(--ai-sp-bg);
+  border-bottom: 1px solid var(--ai-sp-border);
+  flex-shrink: 0;
+}
+
+.ai-sp-platforms {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  background: var(--ai-sp-bg);
+  scroll-behavior: smooth;
+  flex: 1;
+  min-width: 0;
+  scrollbar-width: none;
+  overflow-x: auto;
+
+.ai-sp-platforms::-webkit-scrollbar {
+  display: none;
+}
+
+/* 优先保证左右箭头始终可见：不隐藏、不移除，只在不可滚动时置灰 */
+.ai-sp-platforms-scroll-btn {
+  flex: 0 0 auto !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin: 0 2px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--ai-sp-text-light) !important;
+}
+
+.ai-sp-platforms-scroll-btn.is-disabled {
+  opacity: 0.35 !important;
+  cursor: default !important;
+  pointer-events: auto !important;
+}
+
+.ai-sp-platforms-scroll-btn img {
+  pointer-events: none;
+}
+
+/* 原生侧边栏默认宽度较窄：限制激活标签的文字宽度，避免挤压箭头区域 */
+.ai-sp-platform-btn.active .ai-sp-platform-name {
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

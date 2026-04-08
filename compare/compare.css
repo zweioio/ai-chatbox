@@ -4,12 +4,52 @@
   --cmp-border: #e5e7eb;
   --cmp-text: #111827;
   --cmp-sub: #6b7280;
+  --cmp-btn-bg: #ffffff;
+  --cmp-btn-hover: #f2f2f2;
+  --cmp-panel-bg: #ffffff;
+  --cmp-input-bg: #ffffff;
+  --cmp-input-text: #111827;
+  --cmp-tooltip-bg: #ffffff;
+  --cmp-tooltip-text: #374151;
+  --cmp-tooltip-border: #e5e7eb;
+  --cmp-keywords-bg: rgba(255, 255, 255, 0.85);
+  --cmp-keyword-bg: #eef2ff;
+  --cmp-keyword-text: #3730a3;
+  --cmp-toast-bg: #111827;
+  --cmp-toast-text: #ffffff;
   --cmp-match-bg: #ecfdf5;
   --cmp-match-text: #047857;
   --cmp-diff-bg: #fff7ed;
   --cmp-diff-text: #b45309;
   --cmp-miss-bg: #f3f4f6;
   --cmp-miss-text: #374151;
+}
+
+[data-cmp-theme="dark"] {
+  --cmp-bg: #111827;
+  --cmp-card: #1f2937;
+  --cmp-border: #374151;
+  --cmp-text: #f9fafb;
+  --cmp-sub: #9ca3af;
+  --cmp-btn-bg: #1f2937;
+  --cmp-btn-hover: #374151;
+  --cmp-panel-bg: #1f2937;
+  --cmp-input-bg: #111827;
+  --cmp-input-text: #f9fafb;
+  --cmp-tooltip-bg: #1f2937;
+  --cmp-tooltip-text: #f9fafb;
+  --cmp-tooltip-border: #4b5563;
+  --cmp-keywords-bg: rgba(31, 41, 55, 0.92);
+  --cmp-keyword-bg: #312e81;
+  --cmp-keyword-text: #e0e7ff;
+  --cmp-toast-bg: #0f172a;
+  --cmp-toast-text: #f9fafb;
+  --cmp-match-bg: rgba(16, 185, 129, 0.18);
+  --cmp-match-text: #6ee7b7;
+  --cmp-diff-bg: rgba(245, 158, 11, 0.16);
+  --cmp-diff-text: #fdba74;
+  --cmp-miss-bg: rgba(148, 163, 184, 0.18);
+  --cmp-miss-text: #e5e7eb;
 }
 
 * {
@@ -80,7 +120,7 @@ html, body {
   border: 1px solid var(--cmp-border);
   border-radius: 8px;
   padding: 0 10px;
-  background: #fff;
+  background: var(--cmp-input-bg);
   color: var(--cmp-text);
 }
 
@@ -89,14 +129,14 @@ html, body {
   border: 1px solid var(--cmp-border);
   border-radius: 8px;
   padding: 0 12px;
-  background: #fff;
+  background: var(--cmp-btn-bg);
   color: var(--cmp-text);
   cursor: pointer;
   position: relative;
 }
 
 .cmp-btn:hover {
-  background: #f2f2f2;
+  background: var(--cmp-btn-hover);
 }
 
 .cmp-add {
@@ -180,17 +220,20 @@ html, body {
 }
 
 .cmp-pane-retry {
-  height: 26px;
-  border: 1px solid var(--cmp-border);
-  border-radius: 7px;
-  background: #fff;
-  padding: 0 8px;
-  font-size: 12px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
 .cmp-pane-retry:hover {
-  background: #f2f2f2;
+  background: var(--cmp-btn-hover);
 }
 
 .cmp-pane-drag {
@@ -207,7 +250,7 @@ html, body {
 }
 
 .cmp-pane-drag:hover {
-  background: #f2f2f2;
+  background: var(--cmp-btn-hover);
 }
 
 .cmp-pane-drag:active {
@@ -237,7 +280,7 @@ html, body {
 }
 
 .cmp-pane-btn:hover {
-  background: #f2f2f2;
+  background: var(--cmp-btn-hover);
 }
 
 .cmp-tooltip {
@@ -246,9 +289,9 @@ html, body {
   top: calc(100% + 4px);
   bottom: auto;
   transform: translateX(-50%);
-  background: #fff;
-  color: #374151;
-  border: 1px solid #e5e7eb;
+  background: var(--cmp-tooltip-bg);
+  color: var(--cmp-tooltip-text);
+  border: 1px solid var(--cmp-tooltip-border);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 12px;
@@ -267,6 +310,7 @@ html, body {
 }
 
 .cmp-pane-drag:hover .cmp-tooltip,
+.cmp-pane-retry:hover .cmp-tooltip,
 .cmp-pane-btn:hover .cmp-tooltip,
 .cmp-btn:hover .cmp-tooltip,
 .cmp-toggle:hover .cmp-tooltip {
@@ -286,9 +330,25 @@ html, body {
   transform: none;
 }
 
+.cmp-btn img,
+.cmp-toggle img,
 .cmp-pane-btn img,
-.cmp-pane-drag img {
+.cmp-pane-drag img,
+.cmp-pane-retry img {
   display: block;
+}
+
+.cmp-theme-icon-sun,
+.cmp-theme-icon-moon {
+  transition: filter 0.2s ease;
+}
+
+[data-cmp-theme="dark"] .cmp-btn img,
+[data-cmp-theme="dark"] .cmp-toggle img,
+[data-cmp-theme="dark"] .cmp-pane-btn img,
+[data-cmp-theme="dark"] .cmp-pane-drag img,
+[data-cmp-theme="dark"] .cmp-pane-retry img {
+  filter: brightness(0) invert(1);
 }
 
 .cmp-iframe {
@@ -300,7 +360,7 @@ html, body {
 
 .cmp-side {
   min-height: 0;
-  background: #fff;
+  background: var(--cmp-panel-bg);
   border-left: 1px solid var(--cmp-border);
   width: 320px;
   display: flex;
@@ -313,7 +373,8 @@ html, body {
 .cmp-side-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--cmp-border);
 }
@@ -323,8 +384,15 @@ html, body {
   font-weight: 600;
 }
 
-.cmp-refresh {
+.cmp-side-head-actions {
   margin-left: auto;
+  padding-left: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.cmp-refresh {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -335,7 +403,7 @@ html, body {
   height: 28px;
   border: 1px solid var(--cmp-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--cmp-btn-bg);
   cursor: pointer;
   position: relative;
   display: inline-flex;
@@ -355,6 +423,7 @@ html, body {
 .cmp-legend {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .cmp-tag {
@@ -373,6 +442,7 @@ html, body {
   transform: translateY(-1px);
 }
 
+.cmp-tag-all { background: #eef2ff; color: #4338ca; }
 .cmp-tag-match { background: var(--cmp-match-bg); color: var(--cmp-match-text); }
 .cmp-tag-diff { background: var(--cmp-diff-bg); color: var(--cmp-diff-text); }
 .cmp-tag-miss { background: var(--cmp-miss-bg); color: var(--cmp-miss-text); }
@@ -393,7 +463,7 @@ html, body {
   margin-top: 8px;
   border: 1px solid var(--cmp-border);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--cmp-keywords-bg);
   padding: 10px;
 }
 
@@ -436,8 +506,8 @@ html, body {
 .cmp-keyword {
   padding: 4px 8px;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #3730a3;
+  background: var(--cmp-keyword-bg);
+  color: var(--cmp-keyword-text);
   font-size: 12px;
   cursor: pointer;
   border: 1px solid transparent;
@@ -462,37 +532,50 @@ html, body {
 .cmp-diff-item {
   border: 1px solid var(--cmp-border);
   border-radius: 10px;
-  padding: 8px;
-  background: #fff;
+  padding: 10px;
+  background: var(--cmp-card);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
-.cmp-diff-item.is-collapsed .cmp-diff-badges,
+.cmp-diff-item.is-collapsed .cmp-diff-meta,
 .cmp-diff-item.is-collapsed .cmp-diff-text {
   display: none;
 }
 
 .cmp-diff-head {
-  font-size: 12px;
-  color: var(--cmp-sub);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.cmp-diff-head-left {
+  min-width: 0;
+  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+}
+
+.cmp-diff-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
 
 .cmp-diff-title {
   min-width: 0;
-  flex: 1;
-}
-
-.cmp-diff-toggle {
-  border: none;
-  background: transparent;
-  padding: 0;
-  font-size: 12px;
-  color: #4f46e5;
-  cursor: pointer;
-  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--cmp-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cmp-mark-focus {
@@ -503,10 +586,11 @@ html, body {
 }
 
 .cmp-diff-badges {
-  margin-top: 6px;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .cmp-badge {
@@ -520,9 +604,33 @@ html, body {
 .cmp-badge.miss { background: var(--cmp-miss-bg); color: var(--cmp-miss-text); }
 
 .cmp-diff-text {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--cmp-text);
+}
+
+.cmp-diff-meta {
   margin-top: 6px;
   font-size: 12px;
   line-height: 1.5;
+  color: var(--cmp-sub);
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .cmp-diff-head {
+    gap: 8px;
+  }
+
+  .cmp-diff-badges {
+    gap: 4px;
+  }
+
+  .cmp-badge {
+    font-size: 10px;
+    padding: 2px 5px;
+  }
 }
 
 .cmp-mark {
@@ -554,6 +662,8 @@ html, body {
   font-size: 14px;
   line-height: 1.5;
   resize: none;
+  background: var(--cmp-input-bg);
+  color: var(--cmp-input-text);
 }
 
 .cmp-input:focus {
@@ -590,10 +700,11 @@ html, body {
 
 .cmp-toast {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
-  background: #111827;
-  color: #fff;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--cmp-toast-bg);
+  color: var(--cmp-toast-text);
   padding: 8px 10px;
   border-radius: 8px;
   font-size: 12px;

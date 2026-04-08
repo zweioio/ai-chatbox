@@ -3,9 +3,9 @@
 
   const AI_PLATFORMS = {
     doubao: { name: '豆包', url: 'https://www.doubao.com/chat/', icon: `<img src="${chrome.runtime.getURL('assets/doubao.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/doubao.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
-    qianwen: { name: '千问', url: 'https://www.qianwen.com/', icon: `<img src="${chrome.runtime.getURL('assets/qianwen.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/qianwen.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
-    deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    qianwen: { name: '千问', url: 'https://tongyi.aliyun.com/qianwen/', icon: `<img src="${chrome.runtime.getURL('assets/qianwen.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/qianwen.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     yuanbao: { name: '元宝', url: 'https://yuanbao.tencent.com/chat/naQivTmsDa', icon: `<img src="${chrome.runtime.getURL('assets/yuanbao.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/yuanbao.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     kimi: { name: 'Kimi', url: 'https://www.kimi.com/', icon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     chatglm: { name: '智谱清言', url: 'https://chatglm.cn/main/alltoolsdetail?lang=zh', icon: `<img src="${chrome.runtime.getURL('assets/chatglm.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/chatglm.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: `<img src="${chrome.runtime.getURL('assets/chatgpt.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/chatgpt.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
@@ -16,22 +16,1425 @@
     grok: { name: 'Grok', url: 'https://grok.com/', icon: `<img src="${chrome.runtime.getURL('assets/grok.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/grok.png')}" style="width:32px;height:32px;vertical-align:middle;">` }
   };
 
+  const DEFAULT_SELECTION_DISPLAY_MODE = 'text';
+  const PLATFORM_ORDER = Object.keys(AI_PLATFORMS);
+  const SEARCH_ENGINES = {
+    baidu: { host: 'baidu.com' },
+    google: { host: 'google.com' },
+    bing: { host: 'bing.com' }
+  };
+
   // 默认配置
   let userConfig = {
-    platforms: Object.keys(AI_PLATFORMS).map(key => ({
+    platforms: PLATFORM_ORDER.map(key => ({
       id: key,
       enabled: true
     })),
-    theme: 'light' // 'light' or 'dark'
+    theme: 'light',
+    selectionDisplayMode: DEFAULT_SELECTION_DISPLAY_MODE,
+    selectionToolbarEnabled: true,
+    searchAssistantEnabled: true,
+    searchEngines: Object.keys(SEARCH_ENGINES).map((id) => ({
+      id,
+      enabled: true
+    })),
+    selectionMorePromptIds: ['prompt-polish', 'prompt-rewrite'],
+    promptOrder: [
+      'prompt-explain',
+      'prompt-summary',
+      'prompt-translate',
+      'prompt-polish',
+      'prompt-review',
+      'prompt-rewrite',
+      'prompt-article'
+    ]
   };
 
   let currentPlatform = 'doubao';
   let isSidebarOpen = false;
   let isResizing = false;
   let activeAiUrl = ''; // 保存当前活跃对话的 URL
+  let nativeSidebarOpen = false;
+  const PROMPT_LIBRARY_STORAGE_KEY = 'aiSearchProPromptLibrary';
+  const FAVORITES_STORAGE_KEY = 'aiSearchProFavorites';
+  const DEFAULT_PROMPTS = [
+    { id: 'prompt-explain', title: '解释', icon: '💡', template: '请用简单易懂的方式解释下面这段内容：\n\n{{text}}', enabled: true },
+    { id: 'prompt-summary', title: '总结', icon: '📝', template: '请总结下面这段内容的核心要点：\n\n{{text}}', enabled: true },
+    { id: 'prompt-translate', title: '翻译', icon: '🌐', template: '请把下面内容翻译成中文，并保留原意：\n\n{{text}}', enabled: true },
+    { id: 'prompt-polish', title: '润色', icon: '✨', template: '请润色下面这段内容，让表达更清晰自然：\n\n{{text}}', enabled: true },
+    { id: 'prompt-review', title: '代码审查', icon: '🔍', template: '请从可读性、潜在问题和改进建议三个方面审查下面这段代码：\n\n{{text}}', enabled: false },
+    { id: 'prompt-rewrite', title: '改写', icon: '✍️', template: '请在不改变原意的前提下改写下面内容，让表达更自然：\n\n{{text}}', enabled: false },
+    { id: 'prompt-article', title: '文章提炼', icon: '📚', template: '请结合以下上下文提炼关键信息，并给出结构化总结：\n\n选中内容：\n{{text}}\n\n上下文：\n{{context}}\n\n页面标题：{{page}}\n页面地址：{{url}}', enabled: false }
+  ];
+  const SELECTION_PROMPT_ICON_MAP = {
+    'prompt-explain': 'selection-explain.svg',
+    'prompt-summary': 'selection-summary.svg',
+    'prompt-translate': 'selection-translate.svg',
+    'prompt-polish': 'selection-polish.svg',
+    'prompt-rewrite': 'selection-rewrite.svg',
+    'prompt-review': 'selection-review.svg',
+    'prompt-article': 'selection-article.svg'
+  };
+  const SELECTION_MORE_ICON = 'selection-more.svg';
+  const SELECTION_PROMPTS_ICON = 'selection-prompts.svg';
+  let promptLibraryCache = DEFAULT_PROMPTS.slice();
+  let selectionToolbarEl = null;
+  let selectionToolbarShadow = null;
+  let selectionToolbarHideTimer = null;
+  let selectionPlatformMenuTimer = null;
+  let selectionMoreMenuTimer = null;
+  let selectionToolbarState = {
+    text: '',
+    context: '',
+    page: '',
+    url: '',
+    time: '',
+    placement: 'bottom'
+  };
+  const SETTINGS_MENU_ITEMS = [
+    { action: 'inline-assistants', label: 'AI 助手显示设置' },
+    { tab: 'general', label: '系统设置' }
+  ];
+
+  function openExtensionPage(pagePath) {
+    chrome.runtime.sendMessage({ type: 'OPEN_EXTENSION_PAGE', pagePath }, () => chrome.runtime.lastError);
+  }
+
+  function openSettingsPage(tab = 'general') {
+    openExtensionPage(`settings/settings.html#${tab}`);
+  }
+
+  function openMemoPage() {
+    openExtensionPage('favorites/favorites.html');
+  }
+
+  function normalizePromptLibrary(list) {
+    const incoming = Array.isArray(list) ? list : [];
+    const merged = [];
+    const seen = new Set();
+    [...incoming, ...DEFAULT_PROMPTS].forEach((item) => {
+      if (!item || !item.id || seen.has(item.id)) return;
+      seen.add(item.id);
+      merged.push({
+        id: item.id,
+        title: (item.title || '').trim() || '未命名提示词',
+        icon: (item.icon || '').trim() || '💡',
+        template: typeof item.template === 'string' ? item.template : '',
+        enabled: item.enabled !== false
+      });
+    });
+    return merged.filter((item) => item.template.trim());
+  }
+
+  function normalizeSelectionDisplayMode(mode) {
+    return mode === 'icon' ? 'icon' : DEFAULT_SELECTION_DISPLAY_MODE;
+  }
+
+  function normalizeTheme(mode) {
+    return mode === 'dark' || mode === 'auto' ? mode : 'light';
+  }
+
+  function normalizeToggleList(rawList = [], sourceMap = {}) {
+    const incoming = Array.isArray(rawList) ? rawList : [];
+    const merged = [];
+    const seen = new Set();
+    incoming.forEach((item) => {
+      if (!item || !sourceMap[item.id] || seen.has(item.id)) return;
+      seen.add(item.id);
+      merged.push({
+        id: item.id,
+        enabled: item.enabled !== false
+      });
+    });
+    Object.keys(sourceMap).forEach((id) => {
+      if (!seen.has(id)) {
+        merged.push({ id, enabled: true });
+      }
+    });
+    return merged;
+  }
+
+  function normalizePromptOrder(rawOrder = [], prompts = DEFAULT_PROMPTS) {
+    const sourceOrder = Array.isArray(rawOrder) ? rawOrder : [];
+    const promptIds = prompts.map((item) => item.id);
+    const merged = [];
+    const seen = new Set();
+    sourceOrder.forEach((id) => {
+      if (!promptIds.includes(id) || seen.has(id)) return;
+      seen.add(id);
+      merged.push(id);
+    });
+    promptIds.forEach((id) => {
+      if (!seen.has(id)) {
+        seen.add(id);
+        merged.push(id);
+      }
+    });
+    return merged;
+  }
+
+  function normalizeMorePromptIds(rawIds = [], prompts = DEFAULT_PROMPTS) {
+    const allowIds = ['prompt-polish', 'prompt-rewrite', 'prompt-review', 'prompt-article'];
+    const promptIds = prompts.map((item) => item.id).filter((id) => allowIds.includes(id));
+    const sourceOrder = Array.isArray(rawIds) ? rawIds : [];
+    const merged = [];
+    const seen = new Set();
+    sourceOrder.forEach((id) => {
+      if (!promptIds.includes(id) || seen.has(id)) return;
+      seen.add(id);
+      merged.push(id);
+    });
+    if (!merged.length) {
+      ['prompt-polish', 'prompt-rewrite'].forEach((id) => {
+        if (promptIds.includes(id) && !seen.has(id)) {
+          seen.add(id);
+          merged.push(id);
+        }
+      });
+    }
+    return merged;
+  }
+
+  function normalizeUserConfig(rawConfig = {}) {
+    const allPlatformKeys = PLATFORM_ORDER;
+    const incomingPlatforms = Array.isArray(rawConfig.platforms) ? rawConfig.platforms : [];
+    const enabledMap = new Map(
+      incomingPlatforms
+        .filter((item) => item && allPlatformKeys.includes(item.id))
+        .map((item) => [item.id, item.enabled !== false])
+    );
+    const mergedPlatforms = allPlatformKeys.map((key) => ({
+      id: key,
+      enabled: enabledMap.has(key) ? enabledMap.get(key) : true
+    }));
+    const normalizedSearchEngines = normalizeToggleList(
+      rawConfig.searchAssistant?.engines || rawConfig.searchEngines,
+      SEARCH_ENGINES
+    );
+    return {
+      platforms: mergedPlatforms,
+      theme: normalizeTheme(rawConfig.theme),
+      selectionDisplayMode: normalizeSelectionDisplayMode(
+        rawConfig.selectionToolbar?.displayMode || rawConfig.selectionDisplayMode
+      ),
+      selectionToolbarEnabled: rawConfig.selectionToolbar?.enabled !== false && rawConfig.selectionToolbarEnabled !== false,
+      searchAssistantEnabled: rawConfig.searchAssistant?.enabled !== false && rawConfig.searchAssistantEnabled !== false,
+      searchEngines: normalizedSearchEngines,
+      selectionMorePromptIds: normalizeMorePromptIds(rawConfig.selectionMorePromptIds, DEFAULT_PROMPTS),
+      promptOrder: normalizePromptOrder(rawConfig.promptOrder, DEFAULT_PROMPTS)
+    };
+  }
+
+  function applyPromptTemplate(template, text, variables = {}) {
+    const rawTemplate = typeof template === 'string' ? template : '';
+    const merged = {
+      text: (text || '').trim(),
+      context: typeof variables.context === 'string' ? variables.context.trim() : '',
+      page: typeof variables.page === 'string' ? variables.page.trim() : document.title,
+      url: typeof variables.url === 'string' ? variables.url.trim() : window.location.href,
+      time: typeof variables.time === 'string' ? variables.time.trim() : new Date().toLocaleString()
+    };
+    const normalizedContext = merged.context || merged.text;
+    const replaced = rawTemplate
+      .replaceAll('{{text}}', merged.text)
+      .replaceAll('{{context}}', normalizedContext)
+      .replaceAll('{{page}}', merged.page)
+      .replaceAll('{{url}}', merged.url)
+      .replaceAll('{{time}}', merged.time)
+      .trim();
+    if (!/\{\{(text|context|page|url|time)\}\}/.test(rawTemplate)) {
+      return replaced ? `${replaced}\n\n${merged.text}`.trim() : merged.text;
+    }
+    return replaced;
+  }
+
+  async function loadPromptLibrary() {
+    const data = await chrome.storage.local.get([PROMPT_LIBRARY_STORAGE_KEY]);
+    promptLibraryCache = normalizePromptLibrary(data?.[PROMPT_LIBRARY_STORAGE_KEY]);
+    return promptLibraryCache;
+  }
+
+  function queryNativeSidebarState() {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'GET_TAB_SIDEBAR_STATE' }, (response) => {
+        if (chrome.runtime.lastError || !response?.ok) {
+          resolve(nativeSidebarOpen);
+          return;
+        }
+        nativeSidebarOpen = response.state?.nativeSidebarOpen === true;
+        resolve(nativeSidebarOpen);
+      });
+    });
+  }
+
+  function escapeSelectionHtml(text) {
+    return String(text || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function getSelectionPromptIconMarkup(prompt) {
+    if (SELECTION_PROMPT_ICON_MAP[prompt?.id]) {
+      return `<img src="${chrome.runtime.getURL(`icons/${SELECTION_PROMPT_ICON_MAP[prompt.id]}`)}" alt="" aria-hidden="true">`;
+    }
+    return `<span class="ai-sp-selection-chip-fallback-icon">${escapeSelectionHtml(prompt?.icon || '•')}</span>`;
+  }
+
+  function getSelectionMoreIconMarkup() {
+    return `<img src="${chrome.runtime.getURL(`icons/${SELECTION_MORE_ICON}`)}" alt="" aria-hidden="true">`;
+  }
+
+  function getSelectionMenuIconMarkup(iconFileName, fallback = '•') {
+    if (iconFileName) {
+      return `<img src="${chrome.runtime.getURL(`icons/${iconFileName}`)}" alt="" aria-hidden="true">`;
+    }
+    return `<span class="ai-sp-selection-chip-fallback-icon">${escapeSelectionHtml(fallback)}</span>`;
+  }
+
+  function getSelectionDisplayModeMarkup(mode) {
+    const activeMode = normalizeSelectionDisplayMode(mode);
+    return `
+      <div class="ai-sp-settings-section ai-sp-selection-display-section">
+        <div class="ai-sp-settings-section-title">划词显示设置</div>
+        <div class="ai-sp-selection-display-options">
+          <label class="ai-sp-selection-display-card ${activeMode === 'text' ? 'is-active' : ''}">
+            <input type="radio" name="ai-sp-selection-display-mode" value="text" ${activeMode === 'text' ? 'checked' : ''}>
+            <span class="ai-sp-selection-display-copy">
+              <span class="ai-sp-selection-display-title">文字版</span>
+              <span class="ai-sp-selection-display-desc">显示图标和文字，信息更完整</span>
+            </span>
+            <span class="ai-sp-selection-display-preview text" aria-hidden="true">
+              <span class="ai-sp-selection-display-preview-pill wide"></span>
+              <span class="ai-sp-selection-display-preview-pill"></span>
+              <span class="ai-sp-selection-display-preview-pill"></span>
+            </span>
+          </label>
+          <label class="ai-sp-selection-display-card ${activeMode === 'icon' ? 'is-active' : ''}">
+            <input type="radio" name="ai-sp-selection-display-mode" value="icon" ${activeMode === 'icon' ? 'checked' : ''}>
+            <span class="ai-sp-selection-display-copy">
+              <span class="ai-sp-selection-display-title">图标版</span>
+              <span class="ai-sp-selection-display-desc">显示紧凑图标，页面里更轻巧</span>
+            </span>
+            <span class="ai-sp-selection-display-preview icon" aria-hidden="true">
+              <span class="ai-sp-selection-display-preview-dot wide"></span>
+              <span class="ai-sp-selection-display-preview-dot"></span>
+              <span class="ai-sp-selection-display-preview-dot"></span>
+              <span class="ai-sp-selection-display-preview-dot"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
+  function normalizeSelectionText(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function isSelectionInEditable(selection) {
+    const anchorNode = selection?.anchorNode;
+    const baseEl = anchorNode?.nodeType === Node.ELEMENT_NODE ? anchorNode : anchorNode?.parentElement;
+    if (!baseEl) return false;
+    if (selectionToolbarEl && (baseEl === selectionToolbarEl || selectionToolbarEl.contains(baseEl))) return true;
+    return Boolean(baseEl.closest('input, textarea, [contenteditable="true"], [contenteditable=""], [role="textbox"]'));
+  }
+
+  function getSelectionContext(range, text) {
+    const baseEl = range?.commonAncestorContainer?.nodeType === Node.ELEMENT_NODE
+      ? range.commonAncestorContainer
+      : range?.commonAncestorContainer?.parentElement;
+    if (!baseEl) return '';
+    const block = baseEl.closest('article, section, main, p, li, td, blockquote, pre, div');
+    const contextText = normalizeSelectionText(block?.textContent || '');
+    if (!contextText || contextText === text) return '';
+    if (contextText.length <= 220) return contextText;
+    const index = contextText.indexOf(text);
+    if (index === -1) return `${contextText.slice(0, 220)}…`;
+    const start = Math.max(0, index - 90);
+    const end = Math.min(contextText.length, index + text.length + 90);
+    const prefix = start > 0 ? '…' : '';
+    const suffix = end < contextText.length ? '…' : '';
+    return `${prefix}${contextText.slice(start, end)}${suffix}`;
+  }
+
+  function getSelectionTheme() {
+    const currentTheme = userConfig.theme === 'auto'
+      ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : userConfig.theme;
+    return currentTheme === 'dark' ? 'dark' : 'light';
+  }
+
+  function isSelectionToolbarEnabled() {
+    return userConfig.selectionToolbarEnabled !== false;
+  }
+
+  function getCurrentSearchEngineId() {
+    const host = window.location.hostname;
+    if (host.includes(SEARCH_ENGINES.baidu.host)) return 'baidu';
+    if (host.includes(SEARCH_ENGINES.google.host)) return 'google';
+    if (host.includes(SEARCH_ENGINES.bing.host)) return 'bing';
+    return '';
+  }
+
+  function isSearchAssistantEnabledForCurrentPage() {
+    if (userConfig.searchAssistantEnabled === false) return false;
+    const engineId = getCurrentSearchEngineId();
+    if (!engineId) return false;
+    const engine = Array.isArray(userConfig.searchEngines)
+      ? userConfig.searchEngines.find((item) => item.id === engineId)
+      : null;
+    return engine ? engine.enabled !== false : true;
+  }
+
+  function getSelectionPayload() {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+    if (isSelectionInEditable(selection)) return null;
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (!rect || (!rect.width && !rect.height)) return null;
+    const text = normalizeSelectionText(selection.toString());
+    if (!text || text.length < 2) return null;
+    return {
+      text,
+      rect,
+      context: getSelectionContext(range, text),
+      page: document.title || '',
+      url: window.location.href,
+      time: new Date().toLocaleString(),
+      theme: getSelectionTheme()
+    };
+  }
+
+  function refreshSelectionToolbarPosition() {
+    if (!selectionToolbarEl || selectionToolbarEl.style.display === 'none') return;
+    const payload = getSelectionPayload();
+    if (!payload) {
+      hideSelectionToolbar(true);
+      return;
+    }
+    selectionToolbarState = {
+      ...selectionToolbarState,
+      text: payload.text,
+      context: payload.context,
+      page: payload.page,
+      url: payload.url,
+      time: payload.time
+    };
+    positionSelectionToolbar(payload.rect);
+  }
+
+  function closeSelectionMoreMenu() {
+    if (selectionMoreMenuTimer) {
+      clearTimeout(selectionMoreMenuTimer);
+      selectionMoreMenuTimer = null;
+    }
+    const moreMenu = selectionToolbarShadow?.getElementById('ai-sp-selection-more-menu');
+    const moreBtn = selectionToolbarShadow?.getElementById('ai-sp-selection-more-btn');
+    if (moreMenu) moreMenu.hidden = true;
+    if (moreBtn) moreBtn.dataset.open = 'false';
+  }
+
+  function openSelectionMoreMenu() {
+    if (selectionMoreMenuTimer) {
+      clearTimeout(selectionMoreMenuTimer);
+      selectionMoreMenuTimer = null;
+    }
+    const moreMenu = selectionToolbarShadow?.getElementById('ai-sp-selection-more-menu');
+    const moreBtn = selectionToolbarShadow?.getElementById('ai-sp-selection-more-btn');
+    if (!moreMenu) return;
+    moreMenu.hidden = false;
+    if (moreBtn) moreBtn.dataset.open = 'true';
+  }
+
+  function scheduleCloseSelectionMoreMenu() {
+    if (selectionMoreMenuTimer) {
+      clearTimeout(selectionMoreMenuTimer);
+    }
+    selectionMoreMenuTimer = window.setTimeout(() => {
+      closeSelectionMoreMenu();
+    }, 120);
+  }
+
+  function closeSelectionPlatformMenu() {
+    if (selectionPlatformMenuTimer) {
+      clearTimeout(selectionPlatformMenuTimer);
+      selectionPlatformMenuTimer = null;
+    }
+    const platformMenu = selectionToolbarShadow?.getElementById('ai-sp-selection-platform-menu');
+    const platformToggle = selectionToolbarShadow?.getElementById('ai-sp-selection-platform-toggle');
+    const primaryButton = selectionToolbarShadow?.getElementById('ai-sp-selection-send-btn');
+    if (platformMenu) platformMenu.hidden = true;
+    if (platformToggle) {
+      platformToggle.dataset.open = 'false';
+      platformToggle.setAttribute('aria-expanded', 'false');
+    }
+    if (primaryButton) {
+      primaryButton.dataset.open = 'false';
+      primaryButton.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function openSelectionPlatformMenu() {
+    if (selectionPlatformMenuTimer) {
+      clearTimeout(selectionPlatformMenuTimer);
+      selectionPlatformMenuTimer = null;
+    }
+    const platformMenu = selectionToolbarShadow?.getElementById('ai-sp-selection-platform-menu');
+    const platformToggle = selectionToolbarShadow?.getElementById('ai-sp-selection-platform-toggle');
+    const primaryButton = selectionToolbarShadow?.getElementById('ai-sp-selection-send-btn');
+    if (!platformMenu) return;
+    platformMenu.hidden = false;
+    if (platformToggle) {
+      platformToggle.dataset.open = 'true';
+      platformToggle.setAttribute('aria-expanded', 'true');
+    }
+    if (primaryButton) {
+      primaryButton.dataset.open = 'true';
+      primaryButton.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  function scheduleCloseSelectionPlatformMenu() {
+    if (selectionPlatformMenuTimer) {
+      clearTimeout(selectionPlatformMenuTimer);
+    }
+    selectionPlatformMenuTimer = window.setTimeout(() => {
+      closeSelectionPlatformMenu();
+    }, 120);
+  }
+
+  function hideSelectionToolbar(immediate = false) {
+    if (selectionToolbarHideTimer) {
+      clearTimeout(selectionToolbarHideTimer);
+      selectionToolbarHideTimer = null;
+    }
+    if (!selectionToolbarEl) return;
+    if (immediate) {
+      selectionToolbarEl.style.display = 'none';
+      closeSelectionMoreMenu();
+      closeSelectionPlatformMenu();
+      return;
+    }
+    selectionToolbarHideTimer = window.setTimeout(() => {
+      if (selectionToolbarEl) {
+        selectionToolbarEl.style.display = 'none';
+        closeSelectionMoreMenu();
+        closeSelectionPlatformMenu();
+      }
+    }, 120);
+  }
+
+  function getEnabledSelectionPlatforms() {
+    return userConfig.platforms
+      .filter((item) => item.enabled && AI_PLATFORMS[item.id])
+      .map((item) => item.id);
+  }
+
+  function syncSelectionPlatform(platformKey) {
+    if (!AI_PLATFORMS[platformKey]) return;
+    currentPlatform = platformKey;
+    chrome.storage.local.set({ aiSearchProLastPlatform: currentPlatform });
+  }
+
+  function refreshSelectionPlatformUI() {
+    if (!selectionToolbarShadow) return;
+    const enabledPlatforms = getEnabledSelectionPlatforms();
+    if (!enabledPlatforms.length) return;
+    if (!enabledPlatforms.includes(currentPlatform)) {
+      currentPlatform = enabledPlatforms[0];
+    }
+    const platformName = selectionToolbarShadow.getElementById('ai-sp-selection-platform-name');
+    const platformLogo = selectionToolbarShadow.getElementById('ai-sp-selection-platform-logo-img');
+    const platformList = selectionToolbarShadow.getElementById('ai-sp-selection-platform-list');
+    const platformToggle = selectionToolbarShadow.getElementById('ai-sp-selection-platform-toggle');
+    const platformSendBtn = selectionToolbarShadow.getElementById('ai-sp-selection-send-btn');
+    if (platformName) {
+      platformName.textContent = AI_PLATFORMS[currentPlatform]?.name || '豆包';
+    }
+    if (platformLogo) {
+      platformLogo.src = chrome.runtime.getURL(`assets/${currentPlatform}.png`);
+      platformLogo.alt = AI_PLATFORMS[currentPlatform]?.name || '';
+    }
+    if (platformSendBtn) {
+      const sendLabel = `${AI_PLATFORMS[currentPlatform]?.name || '豆包'}，切换平台`;
+      platformSendBtn.setAttribute('title', sendLabel);
+      platformSendBtn.setAttribute('aria-label', sendLabel);
+    }
+    if (platformToggle) {
+      platformToggle.hidden = enabledPlatforms.length <= 1;
+    }
+    if (platformList) {
+      platformList.innerHTML = enabledPlatforms.map((platformKey) => {
+        const platform = AI_PLATFORMS[platformKey];
+        const isActive = platformKey === currentPlatform;
+        return `
+          <button
+            class="ai-sp-selection-platform-item ${isActive ? 'is-active' : ''}"
+            data-selection-action="platform-select"
+            data-platform-id="${escapeSelectionHtml(platformKey)}"
+            role="menuitemradio"
+            aria-checked="${isActive ? 'true' : 'false'}"
+          >
+            <span class="ai-sp-selection-platform-item-logo">
+              <img src="${chrome.runtime.getURL(`assets/${platformKey}.png`)}" alt="${escapeSelectionHtml(platform.name)}">
+            </span>
+            <span class="ai-sp-selection-platform-item-name">${escapeSelectionHtml(platform.name)}</span>
+            <span class="ai-sp-selection-platform-item-check" aria-hidden="true">${isActive ? '当前' : ''}</span>
+          </button>
+        `;
+      }).join('');
+    }
+  }
+
+  async function openSelectionPrompt(text, platformKey = currentPlatform) {
+    const query = text.trim();
+    if (!query) return;
+    if (AI_PLATFORMS[platformKey]) {
+      syncSelectionPlatform(platformKey);
+    }
+    const shouldUseNativeSidebar = await queryNativeSidebarState();
+    chrome.runtime.sendMessage(
+      shouldUseNativeSidebar
+        ? { type: 'OPEN_NATIVE_SIDEBAR', state: { query, currentPlatform, selectionRequestId: `sel_${Date.now()}` } }
+        : { type: 'OPEN_FLOATING_UI', query },
+      () => chrome.runtime.lastError
+    );
+  }
+
+  function ensureSelectionToolbar() {
+    if (selectionToolbarEl) return selectionToolbarEl;
+    const el = document.createElement('div');
+    el.id = 'ai-sp-selection-toolbar-host';
+    el.style.display = 'none';
+    el.style.position = 'fixed';
+    el.style.left = '0';
+    el.style.top = '0';
+    el.style.zIndex = '2147483646';
+    el.style.pointerEvents = 'none';
+    selectionToolbarShadow = el.attachShadow({ mode: 'open' });
+    selectionToolbarShadow.innerHTML = `
+      <style>
+        :host {
+          all: initial;
+        }
+        #ai-sp-selection-toolbar {
+          position: fixed;
+          left: 0;
+          top: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px;
+          border-radius: 12px;
+          background: #ffffff;
+          border: 1px solid #ececef;
+          box-shadow: 0 8px 24px rgba(17, 24, 39, 0.14);
+          pointer-events: auto;
+          max-width: calc(100vw - 24px);
+          box-sizing: border-box;
+          font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+          color: #111827;
+        }
+        .ai-sp-selection-main {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+        .ai-sp-selection-primary-group {
+          position: relative;
+          display: flex;
+          align-items: center;
+          flex: 0 0 auto;
+          min-width: 0;
+          gap: 4px;
+          border-radius: 6px;
+          background: transparent;
+        }
+        .ai-sp-selection-divider {
+          width: 1px;
+          height: 12px;
+          background: #e5e7eb;
+          flex: 0 0 auto;
+        }
+        .ai-sp-selection-chip {
+          border: none;
+          outline: none;
+          min-height: 28px;
+          padding: 6px;
+          border-radius: 6px;
+          font-size: 14px;
+          line-height: 1;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          white-space: nowrap;
+          transition: background 0.16s ease, color 0.16s ease, opacity 0.16s ease;
+          max-width: none;
+          box-sizing: border-box;
+          color: #0f2d62;
+          background: transparent;
+          font-weight: 500;
+        }
+        .ai-sp-selection-chip-icon {
+          flex: 0 0 auto;
+          width: 20px;
+          height: 20px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #0f2d62;
+        }
+        .ai-sp-selection-chip-icon svg {
+          width: 20px;
+          height: 20px;
+          display: block;
+        }
+        .ai-sp-selection-chip-icon img,
+        .ai-sp-selection-action-icon img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: contain;
+        }
+        .ai-sp-selection-chip-fallback-icon {
+          font-size: 20px;
+          line-height: 1;
+        }
+        .ai-sp-selection-chip:hover,
+        .ai-sp-selection-chip:focus-visible {
+          background: rgba(15, 45, 98, 0.06);
+        }
+        .ai-sp-selection-chip.primary:hover,
+        .ai-sp-selection-chip.primary:focus-visible,
+        .ai-sp-selection-chip.primary-toggle:hover,
+        .ai-sp-selection-chip.primary-toggle:focus-visible,
+        .ai-sp-selection-chip.more:hover,
+        .ai-sp-selection-chip.more:focus-visible,
+        .ai-sp-selection-chip.secondary:not(.is-active):hover,
+        .ai-sp-selection-chip.secondary:not(.is-active):focus-visible {
+          background: transparent;
+        }
+        .ai-sp-selection-action:hover,
+        .ai-sp-selection-action:focus-visible {
+          background: #f2f2f2;
+        }
+        .ai-sp-selection-chip.primary {
+          border-radius: 6px;
+          padding: 0;
+          background: transparent;
+          color: inherit;
+          flex: 0 0 auto;
+          gap: 8px;
+        }
+        .ai-sp-selection-chip.primary-toggle {
+          width: 12px;
+          min-width: 12px;
+          height: 12px;
+          padding: 0;
+          justify-content: center;
+          border-left: none;
+          border-radius: 6px;
+          background: transparent;
+        }
+        .ai-sp-selection-chip.primary-toggle[hidden] {
+          display: none;
+        }
+        .ai-sp-selection-chip.primary-toggle[data-open="true"] .ai-sp-selection-platform-arrow {
+          transform: rotate(180deg);
+        }
+        .ai-sp-selection-chip.secondary {
+          flex: 0 0 auto;
+          padding: 6px;
+        }
+        .ai-sp-selection-chip.secondary.is-active {
+          background: #f2f2f2;
+        }
+        .ai-sp-selection-chip.more {
+          min-width: 28px;
+          width: 28px;
+          height: 28px;
+          justify-content: center;
+          padding: 0;
+          font-weight: 500;
+          border-radius: 8px;
+        }
+        .ai-sp-selection-chip.more[hidden] {
+          display: none;
+        }
+        .ai-sp-selection-chip.more:hover,
+        .ai-sp-selection-chip.more:focus-visible,
+        .ai-sp-selection-chip.more[data-open="true"] {
+          background: #f2f2f2;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip.primary:hover,
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip.primary:focus-visible,
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip.primary[data-open="true"] {
+          background: #f2f2f2;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip {
+          width: 28px;
+          min-width: 28px;
+          max-width: 28px;
+          min-height: 28px;
+          padding: 0;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip.primary {
+          width: 28px;
+          min-width: 28px;
+          max-width: 28px;
+          padding: 0;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip.primary-toggle {
+          display: none;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip-label {
+          display: none;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-primary-group .ai-sp-selection-chip-label {
+          display: none;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-primary-group {
+          gap: 0;
+        }
+        .ai-sp-selection-platform-logo {
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          background: #dbeafe;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          flex: 0 0 auto;
+        }
+        .ai-sp-selection-platform-logo img {
+          width: 28px;
+          height: 28px;
+          display: block;
+          object-fit: cover;
+        }
+        .ai-sp-selection-chip-label.platform {
+          font-size: 14px;
+          line-height: 14px;
+          color: #1f2937;
+        }
+        .ai-sp-selection-platform-arrow {
+          width: 12px;
+          height: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+          transition: transform 0.16s ease;
+        }
+        .ai-sp-selection-platform-arrow svg {
+          width: 12px;
+          height: 12px;
+          display: block;
+        }
+        .ai-sp-selection-platform-menu {
+          position: absolute;
+          top: calc(100% + 16px);
+          left: 0;
+          display: flex;
+          width: 180px;
+          padding: 8px;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          border-radius: 12px;
+          box-shadow: 0 18px 40px rgba(17, 24, 39, 0.18);
+          background: #ffffff;
+          border: 1px solid #ececef;
+          box-sizing: border-box;
+        }
+        .ai-sp-selection-platform-menu[hidden] {
+          display: none;
+        }
+        .ai-sp-selection-platform-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          width: 100%;
+        }
+        .ai-sp-selection-platform-item {
+          width: 100%;
+          min-height: 40px;
+          padding: 6px;
+          border: none;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #111827;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          align-self: stretch;
+          text-align: left;
+          box-sizing: border-box;
+        }
+        .ai-sp-selection-platform-item:hover,
+        .ai-sp-selection-platform-item:focus-visible,
+        .ai-sp-selection-platform-item.is-active {
+          background: #f2f2f2;
+        }
+        .ai-sp-selection-platform-item.is-active .ai-sp-selection-platform-item-name {
+          color: #617bff;
+        }
+        .ai-sp-selection-platform-item-logo {
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          overflow: hidden;
+          flex: 0 0 auto;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .ai-sp-selection-platform-item-logo img {
+          width: 24px;
+          height: 24px;
+          display: block;
+          object-fit: cover;
+        }
+        .ai-sp-selection-platform-item-name {
+          flex: 1 1 auto;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .ai-sp-selection-platform-item-check {
+          display: none;
+        }
+        .ai-sp-selection-chip-label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .ai-sp-selection-action {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px;
+          border-radius: 8px;
+          background: #ffffff;
+          border: none;
+          color: #282828;
+          cursor: pointer;
+          flex: 0 0 auto;
+        }
+        .ai-sp-selection-action-icon {
+          width: 20px;
+          height: 20px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #09244b;
+          flex: 0 0 auto;
+        }
+        .ai-sp-selection-action-icon svg {
+          width: 20px;
+          height: 20px;
+          display: block;
+        }
+        .ai-sp-selection-action-label {
+          font-size: 14px;
+          line-height: 14px;
+          font-weight: 400;
+          color: #282828;
+          white-space: nowrap;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action {
+          width: 28px;
+          height: 28px;
+          min-width: 28px;
+          min-height: 28px;
+          padding: 4px;
+          background: transparent;
+          border-radius: 8px;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action:hover,
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action:focus-visible,
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action:active {
+          background: #f2f2f2;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action.is-active,
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action.is-active:hover,
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action.is-active:focus-visible {
+          background: #f2f2f2;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action-icon {
+          width: 20px;
+          height: 20px;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action-icon svg {
+          width: 20px;
+          height: 20px;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action-label {
+          display: none;
+        }
+        .ai-sp-selection-quick {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          overflow: hidden;
+        }
+        #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-divider {
+          height: 12px;
+        }
+        .ai-sp-selection-more-menu {
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          min-width: 220px;
+          padding: 10px;
+          border-radius: 14px;
+          box-shadow: 0 18px 40px rgba(17, 24, 39, 0.18);
+          background: #ffffff;
+          border: 1px solid rgba(17, 24, 39, 0.08);
+        }
+        .ai-sp-selection-more-menu[hidden] {
+          display: none;
+        }
+        .ai-sp-selection-more-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .ai-sp-selection-menu-item {
+          width: 100%;
+          border: none;
+          border-radius: 10px;
+          text-align: left;
+          padding: 8px 10px;
+          cursor: pointer;
+          font-size: 12px;
+          line-height: 1.4;
+          background: #ffffff;
+          color: #111827;
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+        }
+        .ai-sp-selection-menu-item:hover,
+        .ai-sp-selection-menu-item:focus-visible {
+          background: #f5f7ff;
+        }
+        .ai-sp-selection-menu-item-icon {
+          width: 20px;
+          height: 20px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+          color: #09244b;
+        }
+        .ai-sp-selection-menu-item-icon img,
+        .ai-sp-selection-menu-item-icon svg {
+          width: 20px;
+          height: 20px;
+          display: block;
+          object-fit: contain;
+        }
+        .ai-sp-selection-menu-item-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+        }
+        .ai-sp-selection-menu-item-title {
+          font-size: 13px;
+          line-height: 18px;
+          color: #111827;
+        }
+        .ai-sp-selection-menu-item small {
+          display: block;
+          opacity: 0.65;
+        }
+        .ai-sp-selection-tooltip {
+          position: fixed;
+          left: 0;
+          top: 0;
+          transform: translate(-50%, 0);
+          background: #ffffff;
+          color: #374151;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+          padding: 4px 8px;
+          font-size: 12px;
+          line-height: 1.2;
+          white-space: nowrap;
+          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+          pointer-events: none;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.16s ease;
+        }
+        .ai-sp-selection-tooltip.is-visible {
+          opacity: 1;
+          visibility: visible;
+        }
+        @media (max-width: 720px) {
+          #ai-sp-selection-toolbar {
+            gap: 8px;
+            padding: 8px;
+          }
+          .ai-sp-selection-chip {
+            min-height: 28px;
+            font-size: 14px;
+          }
+          .ai-sp-selection-platform-logo,
+          .ai-sp-selection-platform-logo img {
+            width: 28px;
+            height: 28px;
+          }
+          #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip,
+          #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip.primary,
+          .ai-sp-selection-chip.more {
+            width: 28px;
+            min-width: 28px;
+            max-width: 28px;
+          }
+        }
+      </style>
+      <div id="ai-sp-selection-toolbar" data-placement="bottom" data-mode="text" data-theme="light">
+        <div class="ai-sp-selection-main">
+          <div class="ai-sp-selection-primary-group" id="ai-sp-selection-primary-group">
+            <button class="ai-sp-selection-chip primary" id="ai-sp-selection-send-btn" data-selection-action="send" data-open="false" aria-haspopup="menu" aria-expanded="false">
+              <span class="ai-sp-selection-platform-logo">
+                <img id="ai-sp-selection-platform-logo-img" src="" alt="">
+              </span>
+              <span class="ai-sp-selection-chip-label platform" id="ai-sp-selection-platform-name">豆包</span>
+            </button>
+            <button
+              class="ai-sp-selection-chip primary-toggle"
+              id="ai-sp-selection-platform-toggle"
+              data-selection-action="platforms-toggle"
+              data-open="false"
+              aria-label="切换平台"
+              aria-haspopup="menu"
+              aria-expanded="false"
+            >
+              <span class="ai-sp-selection-platform-arrow" aria-hidden="true">
+                <svg viewBox="0 0 12 12" fill="none">
+                  <path d="M2.4 4.4 6 7.8l3.6-3.4" stroke="#000000" stroke-width="0.72" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </button>
+            <div class="ai-sp-selection-platform-menu" id="ai-sp-selection-platform-menu" hidden>
+              <div class="ai-sp-selection-platform-list" id="ai-sp-selection-platform-list" role="menu" aria-label="选择平台"></div>
+            </div>
+          </div>
+          <span class="ai-sp-selection-divider platform"></span>
+          <div class="ai-sp-selection-quick" id="ai-sp-selection-quick"></div>
+          <span class="ai-sp-selection-divider action-end"></span>
+          <button class="ai-sp-selection-chip more" id="ai-sp-selection-more-btn" data-selection-action="more" hidden aria-label="更多功能" title="更多功能">
+            <span class="ai-sp-selection-chip-icon">${getSelectionMoreIconMarkup()}</span>
+          </button>
+        </div>
+        <div class="ai-sp-selection-more-menu" id="ai-sp-selection-more-menu" hidden>
+          <div class="ai-sp-selection-more-list" id="ai-sp-selection-more-list"></div>
+        </div>
+        <div class="ai-sp-selection-tooltip" id="ai-sp-selection-tooltip"></div>
+      </div>
+    `;
+    document.documentElement.appendChild(el);
+    selectionToolbarEl = el;
+    return el;
+  }
+
+  function renderSelectionToolbar(payload) {
+    ensureSelectionToolbar();
+    selectionToolbarState = {
+      text: payload.text,
+      context: payload.context,
+      page: payload.page,
+      url: payload.url,
+      time: payload.time,
+      placement: 'bottom'
+    };
+    const toolbar = selectionToolbarShadow.getElementById('ai-sp-selection-toolbar');
+    const quick = selectionToolbarShadow.getElementById('ai-sp-selection-quick');
+    const moreList = selectionToolbarShadow.getElementById('ai-sp-selection-more-list');
+    const moreBtn = selectionToolbarShadow.getElementById('ai-sp-selection-more-btn');
+    const moreMenu = selectionToolbarShadow.getElementById('ai-sp-selection-more-menu');
+    const primaryGroup = selectionToolbarShadow.getElementById('ai-sp-selection-primary-group');
+    const platformMenu = selectionToolbarShadow.getElementById('ai-sp-selection-platform-menu');
+    const tooltipEl = selectionToolbarShadow.getElementById('ai-sp-selection-tooltip');
+    const selectionDisplayMode = normalizeSelectionDisplayMode(userConfig.selectionDisplayMode);
+    const promptOrder = normalizePromptOrder(userConfig.promptOrder, promptLibraryCache);
+    const morePromptIds = normalizeMorePromptIds(userConfig.selectionMorePromptIds, promptLibraryCache);
+    const orderedPrompts = promptOrder
+      .map((id) => promptLibraryCache.find((item) => item.id === id))
+      .filter(Boolean);
+    const enabledPrompts = orderedPrompts.filter((item) => item.enabled !== false);
+    const allPromptsById = new Map(promptLibraryCache.map((item) => [item.id, item]));
+    const quickPrompts = enabledPrompts.slice(0, 3);
+    const morePrompts = morePromptIds
+      .map((id) => allPromptsById.get(id))
+      .filter(Boolean);
+    toolbar.className = '';
+    toolbar.dataset.mode = selectionDisplayMode;
+    toolbar.dataset.theme = payload.theme === 'dark' ? 'dark' : 'light';
+    refreshSelectionPlatformUI();
+    quick.innerHTML = quickPrompts.map((item) => `
+      <button
+        class="ai-sp-selection-action"
+        data-selection-action="prompt"
+        data-prompt-id="${escapeSelectionHtml(item.id)}"
+        title="${escapeSelectionHtml(item.title)}"
+        aria-label="${escapeSelectionHtml(item.title)}"
+      >
+        <span class="ai-sp-selection-action-icon">${getSelectionPromptIconMarkup(item)}</span>
+        <span class="ai-sp-selection-action-label">${escapeSelectionHtml(item.title)}</span>
+      </button>
+    `).join('');
+    moreList.innerHTML = `
+      ${morePrompts.map((item) => `
+        <button class="ai-sp-selection-menu-item" data-selection-action="prompt" data-prompt-id="${escapeSelectionHtml(item.id)}">
+          <span class="ai-sp-selection-menu-item-icon">${getSelectionMenuIconMarkup(SELECTION_PROMPT_ICON_MAP[item.id], item.icon || '•')}</span>
+          <span class="ai-sp-selection-menu-item-copy">
+            <span class="ai-sp-selection-menu-item-title">${escapeSelectionHtml(item.title)}</span>
+            <small>${escapeSelectionHtml(item.template.replace(/\s+/g, ' ').slice(0, 48))}</small>
+          </span>
+        </button>
+      `).join('')}
+      <button class="ai-sp-selection-menu-item" data-selection-action="prompts">
+        <span class="ai-sp-selection-menu-item-icon">${getSelectionMenuIconMarkup(SELECTION_PROMPTS_ICON, '•')}</span>
+        <span class="ai-sp-selection-menu-item-copy">
+          <span class="ai-sp-selection-menu-item-title">打开提示词库</span>
+          <small>管理快捷提示词</small>
+        </span>
+      </button>
+    `;
+    moreBtn.hidden = morePrompts.length === 0;
+    const hideSelectionTooltip = () => {
+      if (tooltipEl) {
+        tooltipEl.classList.remove('is-visible');
+      }
+    };
+    const showSelectionTooltip = (target) => {
+      if (!tooltipEl || selectionDisplayMode !== 'icon' || !target) {
+        hideSelectionTooltip();
+        return;
+      }
+      const text = target.getAttribute('aria-label') || target.getAttribute('title') || '';
+      if (!text) {
+        hideSelectionTooltip();
+        return;
+      }
+      tooltipEl.textContent = text;
+      tooltipEl.classList.add('is-visible');
+      const rect = target.getBoundingClientRect();
+      const toolbarRect = toolbar.getBoundingClientRect();
+      const tipRect = tooltipEl.getBoundingClientRect();
+      const left = Math.min(window.innerWidth - tipRect.width / 2 - 8, Math.max(tipRect.width / 2 + 8, rect.left + rect.width / 2));
+      const top = Math.max(8, toolbarRect.top - tipRect.height - 4);
+      tooltipEl.style.left = `${left}px`;
+      tooltipEl.style.top = `${top}px`;
+    };
+    if (primaryGroup && platformMenu) {
+      primaryGroup.onmouseenter = () => {
+        closeSelectionMoreMenu();
+        openSelectionPlatformMenu();
+      };
+      primaryGroup.onmouseleave = () => {
+        scheduleCloseSelectionPlatformMenu();
+      };
+      platformMenu.onmouseenter = () => {
+        if (selectionPlatformMenuTimer) {
+          clearTimeout(selectionPlatformMenuTimer);
+          selectionPlatformMenuTimer = null;
+        }
+      };
+      platformMenu.onmouseleave = () => {
+        scheduleCloseSelectionPlatformMenu();
+      };
+    }
+    if (moreBtn && moreMenu) {
+      moreBtn.onmouseenter = () => {
+        closeSelectionPlatformMenu();
+        openSelectionMoreMenu();
+      };
+      moreBtn.onmouseleave = () => {
+        scheduleCloseSelectionMoreMenu();
+      };
+      moreMenu.onmouseenter = () => {
+        if (selectionMoreMenuTimer) {
+          clearTimeout(selectionMoreMenuTimer);
+          selectionMoreMenuTimer = null;
+        }
+      };
+      moreMenu.onmouseleave = () => {
+        scheduleCloseSelectionMoreMenu();
+      };
+    }
+    toolbar.onmouseover = (event) => {
+      const button = event.target.closest('.ai-sp-selection-main button');
+      if (!button) {
+        hideSelectionTooltip();
+        return;
+      }
+      showSelectionTooltip(button);
+    };
+    toolbar.onmouseout = (event) => {
+      if (event.relatedTarget && toolbar.contains(event.relatedTarget) && event.relatedTarget.closest('.ai-sp-selection-main button')) {
+        return;
+      }
+      hideSelectionTooltip();
+    };
+    toolbar.onfocusin = (event) => {
+      const button = event.target.closest('.ai-sp-selection-main button');
+      if (!button) return;
+      showSelectionTooltip(button);
+    };
+    toolbar.onfocusout = () => {
+      hideSelectionTooltip();
+    };
+    toolbar.onclick = async (event) => {
+      const target = event.target.closest('button');
+      if (!target) return;
+      hideSelectionTooltip();
+      const action = target.dataset.selectionAction;
+      if (action === 'platforms-toggle') {
+        const nextOpen = platformMenu.hidden;
+        closeSelectionMoreMenu();
+        if (nextOpen) {
+          openSelectionPlatformMenu();
+        } else {
+          closeSelectionPlatformMenu();
+        }
+        return;
+      }
+      if (action === 'platform-select') {
+        const nextPlatform = target.dataset.platformId;
+        if (AI_PLATFORMS[nextPlatform]) {
+          syncSelectionPlatform(nextPlatform);
+          refreshSelectionPlatformUI();
+        }
+        closeSelectionPlatformMenu();
+        return;
+      }
+      if (action === 'more') {
+        const nextOpen = moreMenu.hidden;
+        closeSelectionPlatformMenu();
+        if (nextOpen) {
+          openSelectionMoreMenu();
+        } else {
+          closeSelectionMoreMenu();
+        }
+        return;
+      }
+      if (action === 'prompts') {
+        openExtensionPage('prompt-library/prompt_library.html');
+        hideSelectionToolbar(true);
+        return;
+      }
+      if (action === 'send') {
+        closeSelectionMoreMenu();
+        if (platformMenu.hidden) {
+          openSelectionPlatformMenu();
+        } else {
+          closeSelectionPlatformMenu();
+        }
+        return;
+      }
+      if (action === 'prompt') {
+        const prompt = promptLibraryCache.find((item) => item.id === target.dataset.promptId);
+        if (!prompt) return;
+        await openSelectionPrompt(applyPromptTemplate(prompt.template, selectionToolbarState.text, selectionToolbarState));
+        hideSelectionToolbar(true);
+      }
+    };
+    return toolbar;
+  }
+
+  function positionSelectionToolbar(rect) {
+    ensureSelectionToolbar();
+    const toolbar = selectionToolbarShadow.getElementById('ai-sp-selection-toolbar');
+    const gap = 14;
+    selectionToolbarEl.style.display = 'block';
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const centeredLeft = rect.left + rect.width / 2 - toolbarRect.width / 2;
+    const left = Math.min(window.innerWidth - toolbarRect.width - 12, Math.max(12, centeredLeft));
+    const canPlaceTop = rect.top >= toolbarRect.height + gap + 12;
+    const top = canPlaceTop
+      ? rect.top - toolbarRect.height - gap
+      : Math.min(window.innerHeight - toolbarRect.height - 12, rect.bottom + gap);
+    selectionToolbarState.placement = canPlaceTop ? 'top' : 'bottom';
+    toolbar.dataset.placement = selectionToolbarState.placement;
+    toolbar.style.left = `${left}px`;
+    toolbar.style.top = `${top}px`;
+  }
+
+  function initSelectionQuickAsk() {
+    loadPromptLibrary();
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === 'local' && changes[PROMPT_LIBRARY_STORAGE_KEY]) {
+        promptLibraryCache = normalizePromptLibrary(changes[PROMPT_LIBRARY_STORAGE_KEY].newValue);
+      }
+      if (areaName === 'local' && changes.aiSearchProConfig) {
+        userConfig = normalizeUserConfig(changes.aiSearchProConfig.newValue);
+        if (!isSelectionToolbarEnabled()) {
+          hideSelectionToolbar(true);
+        }
+        const container = document.getElementById('ai-sp-container');
+        if (!isSearchAssistantEnabledForCurrentPage()) {
+          if (container) container.remove();
+          return;
+        }
+        if (!container) {
+          renderInitialUI();
+        }
+      }
+    });
+    document.addEventListener('mousedown', (event) => {
+      if (selectionToolbarEl && !selectionToolbarEl.contains(event.target)) {
+        hideSelectionToolbar(true);
+      }
+    });
+    document.addEventListener('scroll', () => refreshSelectionToolbarPosition(), true);
+    window.addEventListener('resize', () => refreshSelectionToolbarPosition());
+    document.addEventListener('touchstart', () => hideSelectionToolbar(true), { passive: true });
+    document.addEventListener('selectionchange', () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        hideSelectionToolbar();
+      }
+    });
+    const showSelectionToolbar = () => {
+      window.setTimeout(async () => {
+        if (!isSelectionToolbarEnabled()) {
+          hideSelectionToolbar(true);
+          return;
+        }
+        const payload = getSelectionPayload();
+        if (!payload) {
+          hideSelectionToolbar();
+          return;
+        }
+        await loadPromptLibrary();
+        renderSelectionToolbar(payload);
+        positionSelectionToolbar(payload.rect);
+      }, 0);
+    };
+    document.addEventListener('mouseup', showSelectionToolbar);
+    document.addEventListener('touchend', showSelectionToolbar, { passive: true });
+  }
 
   // 拦截搜索引擎首页的搜索事件，只有在表单提交（回车或点击搜索按钮）时才记录并传递搜索词
   function initSearchInterception() {
+    if (!isSearchAssistantEnabledForCurrentPage()) return;
     const host = window.location.hostname;
     const isHomePage = window.location.pathname === '/' && !window.location.search;
     
@@ -128,8 +1531,10 @@
   }
 
   // 提取创建 UI 的核心逻辑，允许在配置加载前先渲染默认外壳
-  function renderInitialUI() {
+  async function renderInitialUI() {
     if (document.getElementById('ai-sp-container')) return;
+    if (await queryNativeSidebarState()) return;
+    if (!isSearchAssistantEnabledForCurrentPage()) return;
 
     // 获取搜索词（同步）
     const query = getSearchQuery();
@@ -140,7 +1545,7 @@
   }
 
   // 修改 createUI 接收 query 和 enabledPlatformsList 参数
-  function createUI(query, enabledPlatforms) {
+  function createUI(query, enabledPlatforms, options = {}) {
     if (document.getElementById('ai-sp-container')) return;
 
     if (enabledPlatforms.length === 0) {
@@ -156,12 +1561,313 @@
     // --- 1. 创建统一的容器外壳 ---
     const container = document.createElement('div');
     container.id = 'ai-sp-container';
-    // 默认是小窗模式
     container.className = 'is-floating-mode';
     
     // 记录每个平台对应的 iframe 是否已经加载过
     const loadedPlatforms = {};
     const platformUrls = {};
+    const EMBEDDED_SEND_EVENT = 'AI_SP_EMBEDDED_SEND';
+    const EMBEDDED_SEND_DONE_EVENT = 'AI_SP_EMBEDDED_SEND_DONE';
+    const EMBEDDED_SEND_READY_REQUEST_EVENT = 'AI_SP_EMBEDDED_SEND_READY_REQUEST';
+    const EMBEDDED_SEND_READY_RESPONSE_EVENT = 'AI_SP_EMBEDDED_SEND_READY_RESPONSE';
+    const SEND_READY_MAX_RETRIES = 8;
+    const SEND_READY_RETRY_GAP = 450;
+    const SEND_READY_STABLE_DELAY = 320;
+    const pendingEmbeddedSends = new Map();
+    const sendReadyRequests = new Map();
+    const pendingSummaryRequests = new Map();
+    let currentSessionQuery = (query || '').trim();
+    const getEnabledPlatformsList = () => userConfig.platforms
+      .filter(p => p.enabled && AI_PLATFORMS[p.id])
+      .map(p => p.id);
+    const getCurrentQueryText = () => getSearchQuery() || currentSessionQuery || '';
+
+    const buildNativeSidePanelState = () => {
+      const enabledPlatformsList = getEnabledPlatformsList();
+      const urls = {};
+      enabledPlatformsList.forEach((key) => {
+        const iframe = document.getElementById(`ai-sp-iframe-${key}`);
+        urls[key] = (iframe && iframe.src) ? iframe.src : (platformUrls[key] || buildPlatformUrl(key, getCurrentQueryText()));
+      });
+      return {
+        currentPlatform,
+        enabledPlatforms: enabledPlatformsList,
+        platformUrls: urls,
+        activeUrl: urls[currentPlatform] || AI_PLATFORMS[currentPlatform].url,
+        query: getCurrentQueryText(),
+        theme: getSelectionTheme()
+      };
+    };
+
+    const syncNativeSidePanelState = () => {
+      chrome.runtime.sendMessage({
+        type: 'SYNC_SIDEPANEL_STATE',
+        state: buildNativeSidePanelState()
+      }, () => chrome.runtime.lastError);
+    };
+
+    const makeSendRequestId = () => `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const makeSessionRecordId = () => `fav_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const updateSessionStatus = (text, isError = false) => {
+      const statusEl = container.querySelector('#ai-sp-session-status');
+      if (!statusEl) return;
+      statusEl.textContent = text || '';
+      statusEl.dataset.state = isError ? 'error' : 'default';
+    };
+
+    const clearSessionStatus = (delay = 2200) => {
+      window.setTimeout(() => {
+        const statusEl = container.querySelector('#ai-sp-session-status');
+        if (!statusEl) return;
+        statusEl.textContent = '';
+        statusEl.dataset.state = 'default';
+      }, delay);
+    };
+
+    const closePromptMenu = () => {
+      const menu = container.querySelector('#ai-sp-prompt-menu');
+      if (menu) menu.style.display = 'none';
+    };
+
+    const buildSessionMarkdown = (snapshot, actionLabel = '导出时间') => {
+      const lines = [
+        '# OmniAI 会话',
+        '',
+        `- 问题：${snapshot.query || '未命名问题'}`,
+        `- 来源：${snapshot.sourceLabel}`,
+        `- 当前平台：${snapshot.activePlatformName || '未选择'}`,
+        `- ${actionLabel}：${new Date(snapshot.createdAt).toLocaleString()}`
+      ];
+      if (snapshot.sourceUrl) {
+        lines.push(`- 来源网页：${snapshot.sourceUrl}`);
+      }
+      lines.push('');
+      snapshot.panes.forEach((pane) => {
+        lines.push(`## ${pane.platformName}`);
+        if (pane.active) lines.push('- 当前查看：是');
+        if (pane.url) lines.push(`- 地址：${pane.url}`);
+        lines.push('');
+        lines.push(pane.summary || '暂无摘要');
+        lines.push('');
+      });
+      return lines.join('\n');
+    };
+
+    const downloadMarkdownFile = (title, content) => {
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${(title || 'OmniAI会话').slice(0, 24)}.md`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    const requestPlatformSummary = (platformKey, timeout = 3200) => new Promise((resolve) => {
+      const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
+      if (!iframe?.contentWindow || !loadedPlatforms[platformKey]) {
+        resolve({ platformKey, summary: '', url: platformUrls[platformKey] || '' });
+        return;
+      }
+      const requestId = `sum_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const timer = window.setTimeout(() => {
+        pendingSummaryRequests.delete(requestId);
+        resolve({
+          platformKey,
+          summary: '',
+          url: iframe.src || platformUrls[platformKey] || ''
+        });
+      }, timeout);
+      pendingSummaryRequests.set(requestId, { platformKey, resolve, timer, iframe });
+      try {
+        iframe.contentWindow.postMessage({ type: 'AI_SEARCH_PRO_REQUEST_SUMMARY', requestId }, '*');
+      } catch (e) {
+        clearTimeout(timer);
+        pendingSummaryRequests.delete(requestId);
+        resolve({
+          platformKey,
+          summary: '',
+          url: iframe.src || platformUrls[platformKey] || ''
+        });
+      }
+    });
+
+    const collectSessionSnapshot = async (sourceLabel) => {
+      const activeQuery = getCurrentQueryText().trim();
+      const enabledPlatformsList = getEnabledPlatformsList();
+      const summaries = await Promise.all(enabledPlatformsList.map((platformKey) => requestPlatformSummary(platformKey)));
+      const panes = enabledPlatformsList.map((platformKey) => {
+        const summaryItem = summaries.find((item) => item.platformKey === platformKey) || {};
+        const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
+        return {
+          platform: platformKey,
+          platformName: AI_PLATFORMS[platformKey]?.name || platformKey,
+          summary: summaryItem.summary || '',
+          url: summaryItem.url || iframe?.src || platformUrls[platformKey] || AI_PLATFORMS[platformKey]?.url || '',
+          active: platformKey === currentPlatform
+        };
+      });
+      return {
+        id: makeSessionRecordId(),
+        type: 'session',
+        source: 'floating',
+        sourceLabel,
+        title: activeQuery || '未命名问题',
+        query: activeQuery,
+        createdAt: Date.now(),
+        currentPlatform,
+        activePlatformName: AI_PLATFORMS[currentPlatform]?.name || currentPlatform,
+        sourceUrl: window.location.href,
+        panes
+      };
+    };
+
+    const saveCurrentSessionFavorite = async () => {
+      const activeQuery = getCurrentQueryText().trim();
+      if (!activeQuery) {
+        updateSessionStatus('当前没有可保存的内容', true);
+        clearSessionStatus();
+        return;
+      }
+      updateSessionStatus('正在保存到备忘录...');
+      const snapshot = await collectSessionSnapshot('小窗');
+      snapshot.markdown = buildSessionMarkdown(snapshot, '保存时间');
+      const data = await chrome.storage.local.get([FAVORITES_STORAGE_KEY]);
+      const list = Array.isArray(data?.[FAVORITES_STORAGE_KEY]) ? data[FAVORITES_STORAGE_KEY] : [];
+      await chrome.storage.local.set({ [FAVORITES_STORAGE_KEY]: [snapshot, ...list].slice(0, 100) });
+      updateSessionStatus('已保存到备忘录');
+      clearSessionStatus();
+    };
+
+    const exportCurrentSessionMarkdown = async () => {
+      const activeQuery = getCurrentQueryText().trim();
+      if (!activeQuery) {
+        updateSessionStatus('当前没有可导出的内容', true);
+        clearSessionStatus();
+        return;
+      }
+      updateSessionStatus('正在导出...');
+      const snapshot = await collectSessionSnapshot('小窗');
+      const markdown = buildSessionMarkdown(snapshot, '导出时间');
+      downloadMarkdownFile(snapshot.title, markdown);
+      updateSessionStatus('Markdown 已导出');
+      clearSessionStatus();
+    };
+
+    const renderPromptMenu = async () => {
+      const menu = container.querySelector('#ai-sp-prompt-menu');
+      if (!menu) return;
+      const prompts = await loadPromptLibrary();
+      const enabledPromptList = prompts.filter((item) => item.enabled !== false);
+      if (!enabledPromptList.length) {
+        menu.innerHTML = '<div class="ai-sp-prompt-empty">暂无可用提示词</div>';
+      } else {
+        menu.innerHTML = enabledPromptList.map((item) => `
+          <button class="ai-sp-prompt-item" data-prompt-id="${item.id}">
+            <strong>${item.icon || '💡'} ${item.title}</strong>
+            <span>${item.template.replace(/\s+/g, ' ').slice(0, 60)}</span>
+          </button>
+        `).join('');
+      }
+      menu.style.display = 'flex';
+    };
+
+    const clearReadyRequestEntry = (key) => {
+      const entry = sendReadyRequests.get(key);
+      if (!entry) return;
+      clearTimeout(entry.timer);
+      sendReadyRequests.delete(key);
+    };
+
+    const clearReadyRequestsByRequestId = (requestId) => {
+      Array.from(sendReadyRequests.keys()).forEach((key) => {
+        if (key.startsWith(`${requestId}:`)) clearReadyRequestEntry(key);
+      });
+    };
+
+    const finalizeEmbeddedSend = (requestId) => {
+      const pending = pendingEmbeddedSends.get(requestId);
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      clearReadyRequestsByRequestId(requestId);
+      pendingEmbeddedSends.delete(requestId);
+    };
+
+    const markEmbeddedSendFailure = (requestId, platformKey) => {
+      const pending = pendingEmbeddedSends.get(requestId);
+      if (!pending || pending.done.has(platformKey)) return;
+      pending.failed.add(platformKey);
+      if (pending.done.size + pending.failed.size >= pending.expected.size) {
+        finalizeEmbeddedSend(requestId);
+      }
+    };
+
+    const dispatchEmbeddedSend = (platformKey, text, requestId) => {
+      const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
+      if (!iframe?.contentWindow) {
+        markEmbeddedSendFailure(requestId, platformKey);
+        return;
+      }
+      try {
+        iframe.contentWindow.postMessage({
+          type: EMBEDDED_SEND_EVENT,
+          text,
+          submit: true,
+          requestId,
+          paneId: platformKey
+        }, '*');
+      } catch (e) {
+        markEmbeddedSendFailure(requestId, platformKey);
+      }
+    };
+
+    const queueEmbeddedSend = (platformKey, text, requestId, attempt = 1) => {
+      const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
+      if (!iframe?.contentWindow) {
+        markEmbeddedSendFailure(requestId, platformKey);
+        return;
+      }
+      const key = `${requestId}:${platformKey}`;
+      clearReadyRequestEntry(key);
+      const timer = window.setTimeout(() => {
+        clearReadyRequestEntry(key);
+        if (attempt < SEND_READY_MAX_RETRIES) {
+          queueEmbeddedSend(platformKey, text, requestId, attempt + 1);
+        } else {
+          markEmbeddedSendFailure(requestId, platformKey);
+        }
+      }, SEND_READY_RETRY_GAP);
+      sendReadyRequests.set(key, { platformKey, text, requestId, attempt, timer });
+      try {
+        iframe.contentWindow.postMessage({
+          type: EMBEDDED_SEND_READY_REQUEST_EVENT,
+          requestId,
+          paneId: platformKey
+        }, '*');
+      } catch (e) {
+        clearReadyRequestEntry(key);
+        if (attempt < SEND_READY_MAX_RETRIES) {
+          queueEmbeddedSend(platformKey, text, requestId, attempt + 1);
+        } else {
+          markEmbeddedSendFailure(requestId, platformKey);
+        }
+      }
+    };
+
+    const openNativeSidePanel = () => {
+      chrome.runtime.sendMessage({
+        type: 'OPEN_NATIVE_SIDEBAR',
+        state: buildNativeSidePanelState()
+      }, (response) => {
+        if (chrome.runtime.lastError) return;
+        if (response?.ok) {
+          closeAll();
+        }
+      });
+    };
     
     // 立即加载所有已启用的平台，实现统一并发发送
     enabledPlatforms.forEach(platformKey => {
@@ -179,7 +1885,7 @@
           <button class="ai-sp-settings-back-btn" id="ai-sp-settings-back-btn" title="返回">
             <img src="${chrome.runtime.getURL('icons/settings-back.svg')}" style="width:20px;height:20px;" />
           </button>
-          <span>设置</span>
+          <span>AI 助手</span>
           <div style="flex: 1;"></div>
           <button class="ai-sp-settings-save-btn" id="ai-sp-settings-save-btn">保存</button>
         </div>
@@ -220,13 +1926,20 @@
           <span class="ai-sp-tooltip">按住拖拽</span>
         </button>
         <img src="${chrome.runtime.getURL('icons/icon48.png')}" style="width: 18px; height: 18px; margin-right: 6px;">
-        <span style="font-size: 16px; font-weight: 600; color: var(--ai-sp-text);">OmniAI</span>
       </div>
       <div class="ai-sp-header-controls">
         <button id="ai-sp-theme-btn">
-          <img class="ai-sp-icon-sun" src="${chrome.runtime.getURL('icons/sun.svg')}" style="width:20px;height:20px;display:${userConfig.theme === 'dark' ? 'block' : 'none'};" />
-          <img class="ai-sp-icon-moon" src="${chrome.runtime.getURL('icons/moon.svg')}" style="width:20px;height:20px;display:${userConfig.theme === 'dark' ? 'none' : 'block'};" />
-          <span class="ai-sp-tooltip">${userConfig.theme === 'dark' ? '切换浅色模式' : '切换深色模式'}</span>
+          <img class="ai-sp-icon-sun" src="${chrome.runtime.getURL('icons/sun.svg')}" style="width:20px;height:20px;display:${getSelectionTheme() === 'dark' ? 'block' : 'none'};" />
+          <img class="ai-sp-icon-moon" src="${chrome.runtime.getURL('icons/moon.svg')}" style="width:20px;height:20px;display:${getSelectionTheme() === 'dark' ? 'none' : 'block'};" />
+          <span class="ai-sp-tooltip">${getSelectionTheme() === 'dark' ? '切换浅色模式' : '切换深色模式'}</span>
+        </button>
+        <button id="ai-sp-prompt-library-toolbar-btn">
+          <img src="${chrome.runtime.getURL('icons/selection-prompts.svg')}" style="width:20px;height:20px;" />
+          <span class="ai-sp-tooltip">提示词库</span>
+        </button>
+        <button id="ai-sp-memo-btn" aria-label="打开备忘录">
+          <img src="${chrome.runtime.getURL('icons/memo.svg')}" style="width:20px;height:20px;" />
+          <span class="ai-sp-tooltip">打开备忘录</span>
         </button>
         <button id="ai-sp-split-mode-btn">
           <img src="${chrome.runtime.getURL('icons/split.svg')}" style="width:20px;height:20px;" />
@@ -240,10 +1953,16 @@
           <img src="${chrome.runtime.getURL('icons/sidebar.svg')}" style="width:20px;height:20px;" />
           <span class="ai-sp-tooltip" id="ai-sp-toggle-mode-tooltip">侧边栏打开</span>
         </button>
-        <button id="ai-sp-settings-btn">
-          <img src="${chrome.runtime.getURL('icons/settings.svg')}" style="width:20px;height:20px;" />
-          <span class="ai-sp-tooltip">设置</span>
-        </button>
+        <div class="ai-sp-header-menu-wrap" id="ai-sp-settings-menu-wrap">
+          <button id="ai-sp-settings-btn" aria-label="设置" aria-haspopup="menu" aria-expanded="false">
+            <img src="${chrome.runtime.getURL('icons/settings.svg')}" style="width:20px;height:20px;" />
+          </button>
+          <div class="ai-sp-header-dropdown" id="ai-sp-settings-menu" hidden>
+            ${SETTINGS_MENU_ITEMS.map((item) => `
+              <button class="ai-sp-header-dropdown-item" ${item.action ? `data-action="${item.action}"` : ''} ${item.tab ? `data-settings-tab="${item.tab}"` : ''} ${item.pagePath ? `data-page-path="${item.pagePath}"` : ''}>${item.label}</button>
+            `).join('')}
+          </div>
+        </div>
         <button id="ai-sp-close-btn">
           <img src="${chrome.runtime.getURL('icons/close.svg')}" style="width:20px;height:20px;" />
           <span class="ai-sp-tooltip">关闭</span>
@@ -539,6 +2258,7 @@
         const oldContainer = document.getElementById(`ai-sp-container-${currentPlatform}`);
         const newContainer = document.getElementById(`ai-sp-container-${targetPlatform}`);
         const newLoading = document.getElementById(`ai-sp-loading-${targetPlatform}`);
+        const newIframe = document.getElementById(`ai-sp-iframe-${targetPlatform}`);
         
         if (oldContainer) {
           oldContainer.style.opacity = '0';
@@ -564,6 +2284,7 @@
         }
 
         currentPlatform = targetPlatform;
+        syncNativeSidePanelState();
         
         // 点击后让当前按钮滚动到可视区域内居中
         btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -577,6 +2298,11 @@
     
     function switchMode(toSidebar) {
       if (isSwitching) return;
+      if (toSidebar) {
+        isSwitching = false;
+        openNativeSidePanel();
+        return;
+      }
       isSwitching = true;
       
       const isSidebarMode = container.classList.contains('is-sidebar-mode');
@@ -638,16 +2364,54 @@
     const toggleBtn = container.querySelector('#ai-sp-toggle-mode-btn');
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => {
-        const isSidebarMode = container.classList.contains('is-sidebar-mode');
-        switchMode(!isSidebarMode);
+        openNativeSidePanel();
       });
     }
 
     // 设置
     const settingsPanel = container.querySelector('#ai-sp-settings-panel');
     const settingsBtn = container.querySelector('#ai-sp-settings-btn');
+    const memoBtn = container.querySelector('#ai-sp-memo-btn');
+    const settingsMenuWrap = container.querySelector('#ai-sp-settings-menu-wrap');
+    const settingsMenu = container.querySelector('#ai-sp-settings-menu');
     const settingsBackBtn = container.querySelector('#ai-sp-settings-back-btn');
     const settingsSaveBtn = container.querySelector('#ai-sp-settings-save-btn');
+    const promptLibraryToolbarBtn = container.querySelector('#ai-sp-prompt-library-toolbar-btn');
+    let settingsMenuHideTimer = null;
+
+    function openSettingsDropdown() {
+      if (!settingsBtn || !settingsMenu) return;
+      if (settingsMenuHideTimer) {
+        clearTimeout(settingsMenuHideTimer);
+        settingsMenuHideTimer = null;
+      }
+      settingsMenu.hidden = false;
+      settingsBtn.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeSettingsDropdown() {
+      if (!settingsBtn || !settingsMenu) return;
+      if (settingsMenuHideTimer) {
+        clearTimeout(settingsMenuHideTimer);
+        settingsMenuHideTimer = null;
+      }
+      settingsMenu.hidden = true;
+      settingsBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    function scheduleCloseSettingsDropdown() {
+      if (settingsMenuHideTimer) {
+        clearTimeout(settingsMenuHideTimer);
+      }
+      settingsMenuHideTimer = window.setTimeout(() => {
+        closeSettingsDropdown();
+      }, 120);
+    }
+
+    function openInlineAssistantSettings() {
+      renderSettingsPlatformList();
+      if (settingsPanel) settingsPanel.style.display = 'flex';
+    }
 
     // 生成平台列表 HTML 的辅助函数
     function renderSettingsPlatformList() {
@@ -681,18 +2445,53 @@
     }
 
     if(settingsBtn) {
-      settingsBtn.addEventListener('click', () => {
-        // 打开时恢复最新的配置状态
-        renderSettingsPlatformList();
-        settingsPanel.style.display = 'flex';
+      settingsBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (settingsMenu?.hidden === false) {
+          closeSettingsDropdown();
+          return;
+        }
+        openSettingsDropdown();
       });
     }
+
+    settingsMenuWrap?.addEventListener('mouseenter', openSettingsDropdown);
+    settingsMenuWrap?.addEventListener('mouseleave', scheduleCloseSettingsDropdown);
+
+    settingsMenu?.addEventListener('click', (event) => {
+      const item = event.target.closest('.ai-sp-header-dropdown-item');
+      if (!item) return;
+      if (item.dataset.action === 'inline-assistants') {
+        openInlineAssistantSettings();
+      } else if (item.dataset.pagePath) {
+        openExtensionPage(item.dataset.pagePath);
+      } else {
+        openSettingsPage(item.dataset.settingsTab);
+      }
+      closeSettingsDropdown();
+    });
 
     if(settingsBackBtn) {
       settingsBackBtn.addEventListener('click', () => {
         settingsPanel.style.display = 'none';
       });
     }
+
+    if (promptLibraryToolbarBtn) {
+      promptLibraryToolbarBtn.addEventListener('click', () => {
+        openExtensionPage('prompt-library/prompt_library.html');
+      });
+    }
+
+    memoBtn?.addEventListener('click', () => {
+      openMemoPage();
+    });
+
+    document.addEventListener('mousedown', (event) => {
+      if (settingsMenu?.hidden === false && !settingsMenuWrap?.contains(event.target)) {
+        closeSettingsDropdown();
+      }
+    });
 
     // 设置页面拖拽排序功能
     const platformList = container.querySelector('#ai-sp-platform-list');
@@ -768,7 +2567,11 @@
     function saveSettings() {
       if (!platformList) return;
       
-      const newConfig = { platforms: [], theme: userConfig.theme };
+      const newConfig = {
+        platforms: [],
+        theme: userConfig.theme,
+        selectionDisplayMode: normalizeSelectionDisplayMode(userConfig.selectionDisplayMode)
+      };
       
       // 收集平台配置
       const items = platformList.querySelectorAll('.ai-sp-platform-item');
@@ -779,10 +2582,11 @@
       });
       
       // 更新全局变量
-      userConfig = newConfig;
+      userConfig = normalizeUserConfig(newConfig);
       
       // 同步缓存一份到 localStorage
-      localStorage.setItem('aiSearchProLocalConfig', JSON.stringify(newConfig));
+      chrome.storage.local.set({ aiSearchProConfig: userConfig });
+      localStorage.setItem('aiSearchProLocalConfig', JSON.stringify(userConfig));
       
       // 动态更新 UI 而不销毁现有 iframe，以保留对话记录
       updateUIWithoutReload();
@@ -795,6 +2599,11 @@
         .map(p => p.id);
 
       if (enabledPlatformsList.length === 0) return; // 至少保留一个，否则不处理
+
+      const selectionToolbar = selectionToolbarShadow?.getElementById('ai-sp-selection-toolbar');
+      if (selectionToolbar) {
+        selectionToolbar.dataset.mode = normalizeSelectionDisplayMode(userConfig.selectionDisplayMode);
+      }
       
       // 如果当前平台被禁用了，切换到第一个启用的
       if (!enabledPlatformsList.includes(currentPlatform)) {
@@ -823,7 +2632,7 @@
       const contentArea = container.querySelector('.ai-sp-iframe-content-area');
       if (contentArea) {
         // 隐藏/显示/创建 iframe 容器
-        Object.keys(AI_PLATFORMS).forEach(platformKey => {
+        PLATFORM_ORDER.forEach(platformKey => {
           let iframeContainer = document.getElementById(`ai-sp-container-${platformKey}`);
           
           if (enabledPlatformsList.includes(platformKey)) {
@@ -1077,11 +2886,12 @@
       container.style.display = 'none';
       adjustPageLayout();
     };
+    window.__aiSearchProHideUI = closeAll;
     const closeBtn = container.querySelector('#ai-sp-close-btn');
     if(closeBtn) closeBtn.addEventListener('click', closeAll);
 
     // 初始化主题
-    if (userConfig.theme === 'dark') {
+    if (getSelectionTheme() === 'dark') {
       container.setAttribute('data-ai-sp-theme', 'dark');
     } else {
       container.removeAttribute('data-ai-sp-theme');
@@ -1091,10 +2901,10 @@
     const themeBtn = container.querySelector('#ai-sp-theme-btn');
     if (themeBtn) {
       themeBtn.addEventListener('click', () => {
-        const isDark = userConfig.theme === 'dark';
+        const isDark = getSelectionTheme() === 'dark';
         userConfig.theme = isDark ? 'light' : 'dark';
         
-        if (userConfig.theme === 'dark') {
+        if (getSelectionTheme() === 'dark') {
           container.setAttribute('data-ai-sp-theme', 'dark');
           themeBtn.querySelector('.ai-sp-icon-sun').style.display = 'block';
           themeBtn.querySelector('.ai-sp-icon-moon').style.display = 'none';
@@ -1116,7 +2926,7 @@
             try {
               iframe.contentWindow.postMessage({
                 type: 'AI_SEARCH_PRO_THEME_CHANGE',
-                theme: userConfig.theme
+                theme: getSelectionTheme()
               }, '*');
             } catch(e) {}
           }
@@ -1125,6 +2935,7 @@
         // 保存配置
         chrome.storage.local.set({ aiSearchProConfig: userConfig });
         localStorage.setItem('aiSearchProLocalConfig', JSON.stringify(userConfig));
+        syncNativeSidePanelState();
       });
     }
 
@@ -1173,7 +2984,7 @@
           sessionUrls[key] = src;
         });
         const compareUrl = chrome.runtime.getURL(
-          `compare/compare.html#q=${encodeURIComponent(queryText)}&platforms=${encodeURIComponent(comparePlatforms.join(','))}&enabled=${encodeURIComponent(enabledPlatformsList.join(','))}&urls=${encodeURIComponent(JSON.stringify(sessionUrls))}&theme=${encodeURIComponent(userConfig.theme || 'light')}`
+          `compare/compare.html#q=${encodeURIComponent(queryText)}&platforms=${encodeURIComponent(comparePlatforms.join(','))}&enabled=${encodeURIComponent(enabledPlatformsList.join(','))}&urls=${encodeURIComponent(JSON.stringify(sessionUrls))}&theme=${encodeURIComponent(getSelectionTheme())}`
         );
         window.open(compareUrl, '_blank');
       });
@@ -1189,27 +3000,25 @@
 
     // 广播查询给所有启用的 AI
     const triggerGlobalSend = (text) => {
-      if (!text) return;
+      const sendText = (text || '').trim();
+      if (!sendText) return;
+      currentSessionQuery = sendText;
+      const requestId = makeSendRequestId();
       
       const enabledPlatformsList = userConfig.platforms
         .filter(p => p.enabled && AI_PLATFORMS[p.id])
         .map(p => p.id);
+      const expected = new Set();
         
       enabledPlatformsList.forEach(platformKey => {
         const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
         if (iframe) {
           if (loadedPlatforms[platformKey]) {
-            try {
-              iframe.contentWindow.postMessage({
-                type: 'AI_SEARCH_PRO_NEW_QUERY',
-                query: text
-              }, '*');
-            } catch(e) {
-              console.warn('postMessage failed', e);
-            }
+            expected.add(platformKey);
+            queueEmbeddedSend(platformKey, sendText, requestId, 1);
           } else {
             const loading = document.getElementById(`ai-sp-loading-${platformKey}`);
-            const newUrl = `${AI_PLATFORMS[platformKey].url}#q=${encodeURIComponent(text)}`;
+            const newUrl = `${AI_PLATFORMS[platformKey].url}#q=${encodeURIComponent(sendText)}`;
             platformUrls[platformKey] = newUrl;
             iframe.style.opacity = '0';
             if (loading) loading.style.display = 'flex';
@@ -1218,6 +3027,15 @@
           }
         }
       });
+      if (expected.size) {
+        pendingEmbeddedSends.set(requestId, {
+          expected,
+          done: new Set(),
+          failed: new Set(),
+          timer: window.setTimeout(() => finalizeEmbeddedSend(requestId), 4500)
+        });
+      }
+      syncNativeSidePanelState();
     };
 
     // 将方法暴露给 window，方便右键菜单直接调用
@@ -1228,6 +3046,7 @@
         closeAll();
       } else {
         container.style.display = 'flex';
+        if (container.classList.contains('is-sidebar-mode')) switchMode(false);
         container.style.opacity = '1';
         if (!container.classList.contains('is-sidebar-mode')) {
           updateFloatingWindowPosition();
@@ -1239,12 +3058,13 @@
 
     // 监听 URL / 搜索词变化 (只针对原生搜索引擎的输入)
     let lastUrlQuery = getSearchQuery() || query;
-    setInterval(() => {
+    setInterval(async () => {
       const currentQuery = getSearchQuery();
       
       if (!currentQuery) return;
 
       if (!document.getElementById('ai-sp-container')) {
+        if (await queryNativeSidebarState()) return;
         createUI(currentQuery, userConfig.platforms.filter(p => p.enabled).map(p => p.id));
         return;
       }
@@ -1260,33 +3080,12 @@
         } else {
           adjustPageLayout();
         }
-        
+        currentSessionQuery = currentQuery;
         triggerGlobalSend(currentQuery);
       }
     }, 1000);
 
-    // 监听扩展图标点击唤起侧边栏
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      if (request.action === 'TOGGLE_UI') {
-        const isVisible = container.style.display !== 'none' && container.style.opacity !== '0';
-        
-        if (isVisible) {
-          closeAll();
-        } else {
-          // 强制切换到侧边栏模式
-          if (!container.classList.contains('is-sidebar-mode')) {
-             switchMode(true);
-          } else {
-             container.style.display = 'flex';
-             container.style.opacity = '1';
-             adjustPageLayout();
-          }
-        }
-        sendResponse({status: "ok"});
-      }
-    });
-
-          // 监听 iframe 消息
+    // 监听 iframe 消息
     window.addEventListener('message', (event) => {
       if (event.data) {
         if (event.data.type === 'AI_SEARCH_PRO_LOADED') {
@@ -1299,6 +3098,46 @@
               iframe.style.opacity = '1';
             }
           });
+        } else if (event.data.type === 'AI_SEARCH_PRO_SUMMARY' && event.data.requestId) {
+          const entry = pendingSummaryRequests.get(event.data.requestId);
+          if (!entry) return;
+          clearTimeout(entry.timer);
+          pendingSummaryRequests.delete(event.data.requestId);
+          entry.resolve({
+            platformKey: entry.platformKey,
+            summary: typeof event.data.summary === 'string' ? event.data.summary.trim() : '',
+            url: event.data.url || entry.iframe?.src || platformUrls[entry.platformKey] || ''
+          });
+        } else if (event.data.type === EMBEDDED_SEND_READY_RESPONSE_EVENT && event.data.requestId && event.data.paneId) {
+          const key = `${event.data.requestId}:${event.data.paneId}`;
+          const entry = sendReadyRequests.get(key);
+          if (!entry) return;
+          clearReadyRequestEntry(key);
+          const pending = pendingEmbeddedSends.get(event.data.requestId);
+          if (!pending || pending.done.has(event.data.paneId) || pending.failed.has(event.data.paneId)) return;
+          if (event.data.ready) {
+            const stableDelay = typeof event.data.delay === 'number' ? event.data.delay : SEND_READY_STABLE_DELAY;
+            window.setTimeout(() => {
+              dispatchEmbeddedSend(entry.platformKey, entry.text, event.data.requestId);
+            }, stableDelay);
+          } else if (entry.attempt < SEND_READY_MAX_RETRIES) {
+            queueEmbeddedSend(entry.platformKey, entry.text, event.data.requestId, entry.attempt + 1);
+          } else {
+            markEmbeddedSendFailure(event.data.requestId, event.data.paneId);
+          }
+        } else if (event.data.type === EMBEDDED_SEND_DONE_EVENT && event.data.requestId && event.data.paneId) {
+          const pending = pendingEmbeddedSends.get(event.data.requestId);
+          if (pending && pending.expected.has(event.data.paneId)) {
+            clearReadyRequestEntry(`${event.data.requestId}:${event.data.paneId}`);
+            if (event.data.ok === false) {
+              pending.failed.add(event.data.paneId);
+            } else {
+              pending.done.add(event.data.paneId);
+            }
+            if (pending.done.size + pending.failed.size >= pending.expected.size) {
+              finalizeEmbeddedSend(event.data.requestId);
+            }
+          }
         } else if (event.data.type === 'AI_SEARCH_PRO_URL_SYNC') {
           // 查找是哪个平台的 iframe 发来的消息
           const iframes = document.querySelectorAll('.ai-sp-iframe-container iframe');
@@ -1307,6 +3146,7 @@
               const platform = iframe.dataset.platform;
               if (platform) {
                 platformUrls[platform] = event.data.url;
+                syncNativeSidePanelState();
               }
             }
           });
@@ -1329,6 +3169,7 @@
           iframe.style.opacity = '1';
         }
       });
+      syncNativeSidePanelState();
     }, 10000);
 
   }
@@ -1342,11 +3183,28 @@
 
   // 监听扩展后台的消息（右键菜单、图标点击）
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'TOGGLE_UI') {
+    if (request.type === 'AI_SP_GET_SEARCH_QUERY') {
+      sendResponse({ query: getSearchQuery() });
+    } else if (request.action === 'HIDE_CONTENT_UI') {
+      nativeSidebarOpen = true;
+      if (window.__aiSearchProHideUI) {
+        window.__aiSearchProHideUI();
+      }
+      sendResponse({ status: 'ok' });
+    } else if (request.action === 'TOGGLE_UI') {
+      nativeSidebarOpen = false;
+      const shouldOpenSidebar = request.openSidebar === true;
+      const forceShow = request.forceShow === true;
       if (window.__aiSearchProToggleUI) {
-        window.__aiSearchProToggleUI();
+        if (shouldOpenSidebar) {
+          window.__aiSearchProHideUI?.();
+        } else {
+          window.__aiSearchProToggleUI(forceShow);
+        }
       } else {
-        createUI('', userConfig.platforms.filter(p => p.enabled).map(p => p.id));
+        if (!shouldOpenSidebar) {
+          createUI('', userConfig.platforms.filter(p => p.enabled).map(p => p.id));
+        }
       }
       sendResponse({status: "ok"});
     } else if (request.action === 'SEARCH_FROM_CONTEXT_MENU') {
@@ -1363,23 +3221,12 @@
 
   // 初始化
   function init() {
+    initSelectionQuickAsk();
     // 0. 最高优先级：尝试从 localStorage 同步读取用户配置缓存，确保首屏渲染就是最新排序
     const localConfigStr = localStorage.getItem('aiSearchProLocalConfig');
     if (localConfigStr) {
       try {
-        const localConfig = JSON.parse(localConfigStr);
-        if (localConfig && localConfig.platforms) {
-          // 合并逻辑：防止代码里新增了平台但缓存里没有
-          const allPlatformKeys = Object.keys(AI_PLATFORMS);
-          const mergedPlatforms = localConfig.platforms.filter(p => allPlatformKeys.includes(p.id));
-          const existingIds = mergedPlatforms.map(p => p.id);
-          allPlatformKeys.forEach(key => {
-            if (!existingIds.includes(key)) {
-              mergedPlatforms.push({ id: key, enabled: true });
-            }
-          });
-          userConfig.platforms = mergedPlatforms;
-        }
+        userConfig = normalizeUserConfig(JSON.parse(localConfigStr));
       } catch (e) {
         console.error('Failed to parse local config', e);
       }
@@ -1395,26 +3242,14 @@
     // 2. 异步获取用户配置（兜底，比如用户在其他标签页修改了配置）
     chrome.storage.local.get(['aiSearchProConfig'], (result) => {
       if (result.aiSearchProConfig) {
-        // 合并新老配置，防止代码里新增了平台但本地存储里没有
-        const savedConfig = result.aiSearchProConfig;
-        const allPlatformKeys = Object.keys(AI_PLATFORMS);
-        
-        // 保留已保存的排序和状态
-        const mergedPlatforms = savedConfig.platforms.filter(p => allPlatformKeys.includes(p.id));
-        
-        // 找出本地存储里没有的新平台（比如代码更新了新平台）
-        const existingIds = mergedPlatforms.map(p => p.id);
-        allPlatformKeys.forEach(key => {
-          if (!existingIds.includes(key)) {
-            mergedPlatforms.push({ id: key, enabled: true });
-          }
-        });
-        
-        userConfig.platforms = mergedPlatforms;
-        
-        // 配置加载完毕后，如果不一致，则无感更新 UI
-        if (document.getElementById('ai-sp-container')) {
-           updateUIWithoutReload();
+        userConfig = normalizeUserConfig(result.aiSearchProConfig);
+        const container = document.getElementById('ai-sp-container');
+        if (!isSearchAssistantEnabledForCurrentPage()) {
+          if (container) container.remove();
+          return;
+        }
+        if (!container) {
+          renderInitialUI();
         }
       }
     });

@@ -1,0 +1,161 @@
+body {
+  margin: 0;
+  background: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.fav-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0 -24px;
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid #eceef0;
+  background: #ffffff;
+}
+
+.fav-topbar-inner {
+  width: min(1000px, 100%);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.fav-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fav-topbar-logo {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.fav-topbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  color: #101113;
+}
+
+.fav-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.fav-topbar-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #666666;
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.fav-topbar-btn:hover {
+  color: #101113;
+}
+
+.fav-topbar-btn.is-active {
+  color: #3c82f5;
+  font-weight: 600;
+}
+
+.fav-wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #111827;
+  background: #ffffff;
+}
+
+.fav-head {
+  margin-bottom: 24px;
+}
+
+.fav-head h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.fav-head p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+.fav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fav-item {
+  border: 1px solid #f1f2f3;
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px;
+}
+
+.fav-top,
+.fav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fav-top {
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.fav-meta {
+  color: #6b7280;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.fav-preview {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.fav-actions button {
+  height: 34px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .fav-topbar {
+    margin: 0 -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .fav-topbar-inner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .fav-wrap {
+    padding: 16px;
+  }
+}

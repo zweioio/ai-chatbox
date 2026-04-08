@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>备忘录</title>
+  <link rel="stylesheet" href="favorites.css">
+</head>
+<body>
+  <div class="fav-topbar">
+    <div class="fav-topbar-inner">
+      <div class="fav-topbar-brand">
+        <img class="fav-topbar-logo" src="../icons/icon48.png" alt="">
+        <span class="fav-topbar-title">OmniAI Search</span>
+      </div>
+      <div class="fav-topbar-actions">
+        <button id="fav-open-settings-btn" class="fav-topbar-btn" type="button">设置</button>
+        <button id="fav-open-library-btn" class="fav-topbar-btn" type="button">提示词库</button>
+        <button id="fav-open-memo-btn" class="fav-topbar-btn is-active" type="button">备忘录</button>
+        <button id="fav-open-compare-btn" class="fav-topbar-btn" type="button">内容对比</button>
+      </div>
+    </div>
+  </div>
+  <div class="fav-wrap">
+    <div class="fav-head">
+      <div>
+        <h1>备忘录</h1>
+        <p>保存会话记录、内容对比结果与导出的 Markdown 内容</p>
+      </div>
+    </div>
+    <div id="fav-list" class="fav-list"></div>
+  </div>
+  <script src="favorites.js"></script>
+</body>
+</html>
