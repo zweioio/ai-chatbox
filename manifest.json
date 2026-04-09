@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "OmniAI Search",
   "version": "1.0.0",
-  "description": "在搜索引擎结果旁显示主流 AI 的回答，支持豆包、ChatGPT、千问等。",
+  "description": "在搜索结果页、小窗和侧边栏联动主流 AI 助手，支持划词、右键 AI 处理、对比阅读与平台切换。",
   "permissions": [
     "storage",
     "activeTab",
@@ -26,7 +26,8 @@
     "*://*.perplexity.ai/*",
     "*://copilot.microsoft.com/*",
     "*://grok.com/*",
-    "*://*.chatglm.cn/*"
+    "*://*.chatglm.cn/*",
+    "https://chat.z.ai/*"
   ],
   "icons": {
     "16": "icons/icon16.png",
@@ -80,7 +81,8 @@
         "*://*.perplexity.ai/*",
         "*://copilot.microsoft.com/*",
         "*://grok.com/*",
-        "*://*.chatglm.cn/*"
+        "*://*.chatglm.cn/*",
+        "https://chat.z.ai/*"
       ],
       "js": ["content/ai-inject.js"],
       "all_frames": true,

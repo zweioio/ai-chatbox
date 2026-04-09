@@ -3,31 +3,34 @@
   if (window === window.top) return;
 
   let hasInjected = false;
-  let lastInjectedText = "";
-  let lastInjectedAt = 0;
+  let lastHref = window.location.href;
+  let lastLoadCompletedAt = document.readyState === "complete" ? Date.now() : 0;
   const extensionOrigin = new URL(chrome.runtime.getURL("")).origin;
   const EMBEDDED_SEND_EVENT = "AI_SP_EMBEDDED_SEND";
   const EMBEDDED_SEND_DONE_EVENT = "AI_SP_EMBEDDED_SEND_DONE";
   const EMBEDDED_SEND_READY_REQUEST_EVENT = "AI_SP_EMBEDDED_SEND_READY_REQUEST";
   const EMBEDDED_SEND_READY_RESPONSE_EVENT = "AI_SP_EMBEDDED_SEND_READY_RESPONSE";
+  const EMBEDDED_LOCATION_REQUEST_EVENT = "AI_SP_EMBEDDED_LOCATION_REQUEST";
   const EMBEDDED_LOCATION_EVENT = "AI_SP_EMBEDDED_LOCATION";
+  const EMBEDDED_SEND_READY_DELAY_MS = 420;
   
-  // 用于向父窗口同步当前的真实 URL (包含会话ID)
-  function syncUrlToParent() {
-    const url = window.location.href;
-    window.parent.postMessage({ type: EMBEDDED_LOCATION_EVENT, href: url }, extensionOrigin);
-    window.parent.postMessage({ type: "AI_SEARCH_PRO_URL_SYNC", url }, "*");
+  function publishLocation(requestId) {
+    const href = window.location.href;
+    const shouldForcePublish = typeof requestId === "string";
+    if (!shouldForcePublish && href === lastHref) return;
+    lastHref = href;
+    window.parent.postMessage({ type: EMBEDDED_LOCATION_EVENT, href, requestId }, extensionOrigin);
+    window.parent.postMessage({ type: "AI_SEARCH_PRO_URL_SYNC", url: href }, "*");
   }
 
-  // 监听 URL 变化 (SPA 路由变化)
-  let lastUrl = location.href;
-  new MutationObserver(() => {
-    const url = location.href;
-    if (url !== lastUrl) {
-      lastUrl = url;
-      syncUrlToParent();
-    }
-  }).observe(document, {subtree: true, childList: true});
+  function syncLocation() {
+    const href = window.location.href;
+    if (href === lastHref) return;
+    lastHref = href;
+    lastLoadCompletedAt = document.readyState === "complete" ? Date.now() : 0;
+    window.parent.postMessage({ type: EMBEDDED_LOCATION_EVENT, href }, extensionOrigin);
+    window.parent.postMessage({ type: "AI_SEARCH_PRO_URL_SYNC", url: href }, "*");
+  }
 
   function getQueryFromHash() {
     const hash = window.location.hash;
@@ -39,17 +42,6 @@
 
   function normalizeInjectedText(text) {
     return (text || "").replace(/\s+/g, " ").trim();
-  }
-
-  function markInjectedText(text) {
-    lastInjectedText = normalizeInjectedText(text);
-    lastInjectedAt = Date.now();
-  }
-
-  function shouldSkipDuplicateInjection(text) {
-    const normalized = normalizeInjectedText(text);
-    if (!normalized) return true;
-    return normalized === lastInjectedText && Date.now() - lastInjectedAt < 1200;
   }
 
   function ensureHostLayoutStyle() {
@@ -94,8 +86,12 @@
     const likelySidebarCandidates = document.querySelectorAll('aside, nav, [role="navigation"], div[class*="sidebar"], div[class*="sider"], section[class*="sidebar"]');
     likelySidebarCandidates.forEach(el => {
       if (!isVisibleElement(el)) return;
+      const identity = `${el.tagName} ${el.id || ''} ${el.className || ''} ${el.getAttribute('role') || ''}`.toLowerCase();
+      const isExplicitSidebar = /sidebar|sider|navigation|drawer|menu/.test(identity) || el.tagName === 'ASIDE' || el.tagName === 'NAV';
+      if (!isExplicitSidebar) return;
       const rect = el.getBoundingClientRect();
-      const looksLikeLeftSidebar = rect.left <= 8 && rect.width >= 160 && rect.width <= 420 && rect.height >= 420;
+      const maxSidebarWidth = Math.min(320, Math.max(220, window.innerWidth * 0.36));
+      const looksLikeLeftSidebar = rect.left <= 16 && rect.width >= 160 && rect.width <= maxSidebarWidth && rect.height >= Math.max(360, window.innerHeight * 0.6);
       if (!looksLikeLeftSidebar) return;
       setStyle(el, 'display', 'none');
       setStyle(el, 'width', '0px');
@@ -140,9 +136,18 @@
     };
     if (host.includes('doubao.com')) {
       return {
-        inputs: ['textarea[data-testid="chat_input_input"]', '#chat-input', 'div.ql-editor[contenteditable="true"]', 'textarea'],
-        buttons: ['button[data-testid="chat_input_send_button"]', 'button[data-testid="send_button"]', 'button[aria-label="发送"]'],
-        submitAssist: false,
+        inputs: [
+          'div[data-testid="chat_input_input"]',
+          'div.ql-editor[contenteditable="true"]',
+          'textarea'
+        ],
+        buttons: [
+          'button[data-testid="chat_input_send_button"]',
+          'button[data-testid="send_button"]',
+          'button[aria-label*="发送"]',
+          'button[type="submit"]',
+        ],
+        submitAssist: true,
       };
     }
     if (host.includes('chatgpt.com')) {
@@ -155,31 +160,25 @@
     if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
       return {
         inputs: [
-          '#chat-input',
-          'textarea[placeholder*="向千问"]',
-          'textarea[placeholder*="提问"]',
-          'input[placeholder*="向千问"]',
-          'input[placeholder*="提问"]',
-          'div[role="textbox"][aria-label*="向千问"]',
-          'div[role="textbox"][aria-label*="提问"]',
+          'div.chatInput-ucD7bG div[role="textbox"][data-placeholder="向千问提问"][data-slate-editor="true"][contenteditable="true"]',
+          'div.inputContainer-ti33qt div[role="textbox"][data-placeholder="向千问提问"][data-slate-editor="true"][contenteditable="true"]',
           'div[data-slate-editor="true"][contenteditable="true"]',
           'div[role="textbox"][contenteditable="true"]',
-          'div[role="textbox"]',
-          'textarea',
-          'input[type="text"]',
-          'div[contenteditable="true"]'
+          'div[role="textbox"][data-placeholder][contenteditable="true"]',
+          'div[contenteditable="true"][data-placeholder]',
+          'textarea[placeholder*="向千问"]',
+          'textarea[placeholder*="提问"]',
+          'textarea[class*="chatInput"]',
+          'textarea'
         ],
         buttons: [
+          '.right-XCy4NU .operateBtn-ehxNOr',
+          '.operateBtn-ehxNOr',
           'div[class*="operateBtn"]',
           'button[aria-label*="发送"]',
           'button[aria-label*="Send"]',
-          'div[role="button"][aria-label*="发送"]',
-          'div[role="button"][aria-label*="Send"]',
-          'button[class*="send"]',
-          'div[class*="send-btn"]',
-          'div[class*="send_btn"]',
-          'div[class*="chat-input-send"]',
-          'button[type="submit"]'
+          'button[type="submit"]',
+          'button[class*="send"]'
         ],
         submitAssist: true,
       };
@@ -267,15 +266,32 @@
   }
 
   function findInputTarget(config) {
+    const host = window.location.hostname;
     const selectors = (config?.inputs || []).filter(Boolean);
     for (const selector of selectors) {
       const els = Array.from(document.querySelectorAll(selector));
-      const visibleEls = els.filter(isVisibleElement);
+      const visibleEls = els.filter(isVisibleElement).filter((el) => {
+        if (!(host.includes("qianwen.com") || host.includes("tongyi.aliyun.com"))) return true;
+        return el.getAttribute("aria-disabled") !== "true";
+      });
       if (visibleEls.length === 0) continue;
       visibleEls.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top);
       return visibleEls[0];
     }
     return null;
+  }
+
+  function getQianwenComposerRoot(target) {
+    return target?.closest(".inputOutWrap-_hjFu_")
+      || target?.closest(".inputContainer-ti33qt")
+      || target?.closest(".chatInput-ucD7bG")
+      || target?.closest("form")
+      || target?.closest('[class*="chatInput"]')
+      || target?.closest('[class*="inputWrap"]')
+      || target?.closest('[class*="inputArea"]')
+      || target?.closest('[class*="editor"]')
+      || target?.parentElement
+      || null;
   }
 
   function placeCaretAtEnd(target) {
@@ -301,7 +317,6 @@
 
   // 根据配置直接暴露函数供外部调用
   window.__AI_SEARCH_PRO_INJECT_TEXT = function(text, avoidFocus = true) {
-    if (shouldSkipDuplicateInjection(text)) return true;
     const config = getConfig();
     const inputEl = findInputTarget(config);
     if (!inputEl) return false;
@@ -336,7 +351,6 @@
       if (!avoidFocus) {
         maintainInputFocus(inputEl, false);
       }
-      markInjectedText(text);
       return true;
     }
     
@@ -344,7 +358,6 @@
       const currentText = normalizeInjectedText(inputEl.innerText || inputEl.textContent || "");
       const nextText = normalizeInjectedText(text);
       if (currentText === nextText) {
-        markInjectedText(text);
         return true;
       }
       if (!avoidFocus || shouldTemporarilyFocus) {
@@ -393,7 +406,6 @@
       inputEl.dispatchEvent(new Event("change", { bubbles: true }));
       
       if (!avoidFocus) maintainInputFocus(inputEl, true);
-      markInjectedText(text);
       return true;
     }
     
@@ -531,17 +543,38 @@
         hasInjected = true;
         sessionStorage.setItem(storageKey, query);
         window.parent.postMessage({ type: 'AI_SEARCH_PRO_LOADED' }, '*');
-        syncUrlToParent();
+        publishLocation();
       }, submitDelay);
     }
   }
 
   function findSubmitTarget(config) {
+    const host = window.location.hostname;
     const selectors = (config?.buttons || []).filter(Boolean);
+    const inputTarget = findInputTarget(config);
+    if ((host.includes("qianwen.com") || host.includes("tongyi.aliyun.com")) && inputTarget) {
+      const scopedRoot = getQianwenComposerRoot(inputTarget);
+      if (scopedRoot) {
+        for (const selector of selectors) {
+          try {
+            const button = Array.from(scopedRoot.querySelectorAll(selector)).find((el) => {
+              if (!el || !isVisibleElement(el)) return false;
+              if (el.getAttribute("aria-disabled") === "true" || el.className.includes("disabled") || el.disabled) return false;
+              return true;
+            });
+            if (button) return button;
+          } catch (e) {}
+        }
+      }
+    }
     for (const selector of selectors) {
       try {
-        const button = document.querySelector(selector);
-        if (button && isVisibleElement(button)) return button;
+        const button = Array.from(document.querySelectorAll(selector)).find((el) => {
+          if (!el || !isVisibleElement(el)) return false;
+          if (el.getAttribute("aria-disabled") === "true" || el.className.includes("disabled") || el.disabled) return false;
+          return true;
+        });
+        if (button) return button;
       } catch (e) {}
     }
     return null;
@@ -549,9 +582,16 @@
 
   function getReadyStableDelay() {
     const host = window.location.hostname;
-    if (host.includes("qianwen.com") || host.includes("tongyi.aliyun.com")) return 960;
     if (host.includes("deepseek.com")) return 420;
     return 320;
+  }
+
+  function getSubmitRetryConfig() {
+    const host = window.location.hostname;
+    if (host.includes("deepseek.com")) {
+      return { initialDelay: 260, retryDelay: 280, maxAttempts: 18 };
+    }
+    return { initialDelay: 120, retryDelay: 260, maxAttempts: 16 };
   }
 
   function isPlatformReadyForSend() {
@@ -559,13 +599,6 @@
     const config = getConfig();
     const inputEl = findInputTarget(config);
     if (!inputEl || !isVisibleElement(inputEl)) return false;
-    const host = window.location.hostname;
-    if (host.includes("qianwen.com") || host.includes("tongyi.aliyun.com")) {
-      const submitBtn = findSubmitTarget(config);
-      const hasForm = Boolean(inputEl.closest("form"));
-      const placeholder = (inputEl.getAttribute("placeholder") || inputEl.getAttribute("aria-label") || "").trim();
-      return Boolean(submitBtn || hasForm || placeholder);
-    }
     return true;
   }
 
@@ -579,6 +612,11 @@
       applyQianwenFallbackLayout();
     });
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    window.addEventListener('resize', () => {
+      window.requestAnimationFrame(() => {
+        applyQianwenFallbackLayout();
+      });
+    });
   }
 
   // 轮询查找 DOM 元素，因为 SPA 渲染有延迟
@@ -649,12 +687,9 @@
   
   window.addEventListener("message", (event) => {
     const data = event.data || {};
-    const fromExtension = event.origin === extensionOrigin;
-    const fromParentPage = event.source === window.parent && typeof event.origin === "string";
-    const allowEmbeddedBridge = fromExtension || fromParentPage;
-    const responseOrigin = fromExtension ? extensionOrigin : event.origin;
+    if (event.origin !== extensionOrigin) return;
 
-    if (allowEmbeddedBridge && data.type === EMBEDDED_SEND_READY_REQUEST_EVENT) {
+    if (data.type === EMBEDDED_SEND_READY_REQUEST_EVENT) {
       const requestId = typeof data.requestId === "string" ? data.requestId : "";
       window.parent.postMessage({
         type: EMBEDDED_SEND_READY_RESPONSE_EVENT,
@@ -662,31 +697,66 @@
         paneId: data.paneId,
         ready: isPlatformReadyForSend(),
         delay: getReadyStableDelay()
-      }, responseOrigin);
+      }, extensionOrigin);
       return;
     }
 
-    if (allowEmbeddedBridge && data.type === EMBEDDED_SEND_EVENT && typeof data.text === "string") {
+    if (data.type === EMBEDDED_LOCATION_REQUEST_EVENT) {
+      publishLocation(typeof data.requestId === "string" ? data.requestId : undefined);
+      return;
+    }
+
+    if (data.type === EMBEDDED_SEND_EVENT && typeof data.text === "string") {
       const requestId = typeof data.requestId === "string" ? data.requestId : "";
-      const processed = window.__aiSpProcessedSendIds ?? new Set();
-      window.__aiSpProcessedSendIds = processed;
-      if (requestId && processed.has(requestId)) {
-        window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId }, responseOrigin);
+      const completed = window.__aiSpCompletedSendIds ?? new Set();
+      const pending = window.__aiSpPendingSendIds ?? new Set();
+      window.__aiSpCompletedSendIds = completed;
+      window.__aiSpPendingSendIds = pending;
+      if (requestId && completed.has(requestId)) {
+        window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId, ok: true }, extensionOrigin);
         return;
       }
-      if (requestId) processed.add(requestId);
-
-      const inserted = window.__AI_SEARCH_PRO_INJECT_TEXT(data.text, true);
-      if (inserted && data.submit !== false) {
-        const host = window.location.hostname;
-        const submitDelay = (host.includes("qianwen.com") || host.includes("tongyi.aliyun.com") || host.includes("deepseek.com")) ? 260 : 120;
-        window.setTimeout(() => {
-          window.__AI_SEARCH_PRO_SUBMIT_CHAT(true);
-          window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId, ok: true }, responseOrigin);
-        }, submitDelay);
-      } else {
-        window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId, ok: inserted }, responseOrigin);
+      if (requestId && pending.has(requestId)) {
+        return;
       }
+      const isDocumentReady = document.readyState === "complete";
+      const loadSettled = lastLoadCompletedAt > 0 && Date.now() - lastLoadCompletedAt >= EMBEDDED_SEND_READY_DELAY_MS;
+      if (!isDocumentReady || !loadSettled) {
+        return;
+      }
+      if (!isPlatformReadyForSend()) {
+        return;
+      }
+      const inserted = window.__AI_SEARCH_PRO_INJECT_TEXT(data.text, true);
+      if (!inserted) {
+        return;
+      }
+      if (data.submit === false) {
+        if (requestId) completed.add(requestId);
+        window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId, ok: true }, extensionOrigin);
+        return;
+      }
+      const { initialDelay, retryDelay, maxAttempts } = getSubmitRetryConfig();
+      if (requestId) pending.add(requestId);
+      const runSubmit = (attempt = 0) => {
+        const submitted = window.__AI_SEARCH_PRO_SUBMIT_CHAT(true);
+        if (submitted) {
+          if (requestId) {
+            pending.delete(requestId);
+            completed.add(requestId);
+          }
+          window.parent.postMessage({ type: EMBEDDED_SEND_DONE_EVENT, requestId, paneId: data.paneId, ok: true }, extensionOrigin);
+          return;
+        }
+        if (attempt >= maxAttempts) {
+          if (requestId) pending.delete(requestId);
+          return;
+        }
+        window.setTimeout(() => runSubmit(attempt + 1), retryDelay);
+      };
+      window.setTimeout(() => {
+        runSubmit(0);
+      }, initialDelay);
       return;
     }
 
@@ -695,11 +765,15 @@
       if (newQuery) {
         const inserted = window.__AI_SEARCH_PRO_INJECT_TEXT(newQuery, true);
         if (inserted) {
-          const host = window.location.hostname;
-          const submitDelay = (host.includes("qianwen.com") || host.includes("tongyi.aliyun.com") || host.includes("deepseek.com")) ? 260 : 120;
+          const { initialDelay, retryDelay, maxAttempts } = getSubmitRetryConfig();
+          const runSubmit = (attempt = 1) => {
+            const submitted = window.__AI_SEARCH_PRO_SUBMIT_CHAT(true);
+            if (submitted || attempt >= maxAttempts) return;
+            window.setTimeout(() => runSubmit(attempt + 1), retryDelay);
+          };
           window.setTimeout(() => {
-            window.__AI_SEARCH_PRO_SUBMIT_CHAT(true);
-          }, submitDelay);
+            runSubmit(1);
+          }, initialDelay);
         }
       }
       return;
@@ -794,6 +868,15 @@
       }, '*');
     }
   });
+
+  window.parent.postMessage({ type: EMBEDDED_LOCATION_EVENT, href: lastHref }, extensionOrigin);
+  window.addEventListener("load", () => {
+    lastLoadCompletedAt = Date.now();
+    publishLocation();
+  });
+  window.addEventListener("hashchange", syncLocation);
+  window.addEventListener("popstate", syncLocation);
+  window.setInterval(syncLocation, 1000);
 
   // 10秒后停止轮询，避免性能消耗
   setTimeout(() => {

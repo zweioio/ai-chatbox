@@ -1,10 +1,23 @@
 // background/background.js
 
 const sidePanelStates = new Map();
+const SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY = "aiSearchProSidepanelContextAction";
+const FLOATING_CONTEXT_ACTION_STORAGE_KEY = "aiSearchProFloatingContextAction";
+const AI_CONTEXT_MENU_ROOT_ID = "ai-search-pro-process";
+const AI_CONTEXT_MENU_ITEMS = [
+  { id: "prompt-explain", title: "解释" },
+  { id: "prompt-summary", title: "总结" },
+  { id: "prompt-translate", title: "翻译" },
+  { id: "prompt-polish", title: "润色" },
+  { id: "prompt-rewrite", title: "改写" },
+  { id: "prompt-article", title: "文章提炼" },
+  { id: "prompt-review", title: "代码审查" }
+];
 
 if (chrome.sidePanel && typeof chrome.sidePanel.setPanelBehavior === "function") {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 }
+setupContextMenus();
 
 function getDefaultSidePanelState(tabId, url = "about:blank") {
   return {
@@ -41,6 +54,66 @@ async function getActiveTab() {
   return tabs && tabs.length ? tabs[0] : null;
 }
 
+async function queueSidePanelContextAction(action) {
+  await chrome.storage.local.set({
+    [SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY]: {
+      id: action.id,
+      platformId: action.platformId,
+      text: action.text,
+      createdAt: Date.now()
+    }
+  });
+}
+
+async function openAndQueueSidePanelContextAction(tabId, action, patch = {}, windowId) {
+  const result = await openNativeSidePanel(tabId, {
+    ...patch,
+    query: action.text,
+    currentPlatform: action.platformId,
+    forceSidebarOnly: true,
+    windowId
+  });
+  if (result?.ok) {
+    await queueSidePanelContextAction(action);
+  } else {
+    await clearQueuedSidePanelContextAction();
+  }
+  return result;
+}
+
+async function clearQueuedSidePanelContextAction() {
+  await chrome.storage.local.remove(SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY);
+}
+
+async function queueFloatingContextAction(action) {
+  await chrome.storage.local.set({
+    [FLOATING_CONTEXT_ACTION_STORAGE_KEY]: {
+      id: action.id,
+      platformId: action.platformId,
+      text: action.text,
+      createdAt: Date.now()
+    }
+  });
+}
+
+function setupContextMenus() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: AI_CONTEXT_MENU_ROOT_ID,
+      title: "使用 AI 处理",
+      contexts: ["selection"]
+    });
+    AI_CONTEXT_MENU_ITEMS.forEach((item) => {
+      chrome.contextMenus.create({
+        id: item.id,
+        parentId: AI_CONTEXT_MENU_ROOT_ID,
+        title: item.title,
+        contexts: ["selection"]
+      });
+    });
+  });
+}
+
 async function ensureContentScript(tabId) {
   try {
     await chrome.scripting.insertCSS({ target: { tabId }, files: ["content/content.css"] });
@@ -68,11 +141,19 @@ async function broadcastSidePanelState(tabId) {
 }
 
 async function openNativeSidePanel(tabId, patch = {}) {
-  const state = updateSidePanelState(tabId, { ...patch, nativeSidebarOpen: false });
-  if (!chrome.sidePanel) {
+  const { forceSidebarOnly = false, ...statePatch } = patch || {};
+  const state = updateSidePanelState(tabId, { ...statePatch, nativeSidebarOpen: false });
+  const fallbackToFloating = async () => {
+    if (forceSidebarOnly) {
+      await broadcastSidePanelState(tabId);
+      return { ok: false, state };
+    }
     await sendMessageToTab(tabId, { action: "TOGGLE_UI", openSidebar: false, forceShow: true });
     await broadcastSidePanelState(tabId);
     return { ok: false, state };
+  };
+  if (!chrome.sidePanel) {
+    return fallbackToFloating();
   }
   if (typeof chrome.sidePanel.open !== "function") {
     try {
@@ -84,37 +165,30 @@ async function openNativeSidePanel(tabId, patch = {}) {
     await broadcastSidePanelState(tabId);
     return { ok: false, state };
   }
-  try {
-    try {
-      await chrome.sidePanel.setOptions({ tabId, path: "sidepanel/sidepanel.html", enabled: true });
-    } catch (e0) {}
-    await sendMessageToTab(tabId, { action: "HIDE_CONTENT_UI" });
-    const windowId = typeof patch.windowId === "number" ? patch.windowId : undefined;
+  const tryOpen = async (windowId) => {
     if (typeof windowId === "number") {
       await chrome.sidePanel.open({ windowId });
     } else {
       await chrome.sidePanel.open({ tabId });
     }
+    try {
+      await chrome.sidePanel.setOptions({ tabId, path: "sidepanel/sidepanel.html", enabled: true });
+    } catch (e0) {}
+    await sendMessageToTab(tabId, { action: "HIDE_CONTENT_UI" });
     const openedState = updateSidePanelState(tabId, { nativeSidebarOpen: true });
     await broadcastSidePanelState(tabId);
     return { ok: true, state: openedState };
+  };
+  try {
+    const windowId = typeof statePatch.windowId === "number" ? statePatch.windowId : undefined;
+    return await tryOpen(windowId);
   } catch (e) {
     try {
-      await chrome.sidePanel.setOptions({ tabId, path: "sidepanel/sidepanel.html", enabled: true });
-      await sendMessageToTab(tabId, { action: "HIDE_CONTENT_UI" });
-      const windowId = typeof patch.windowId === "number" ? patch.windowId : undefined;
-      if (typeof windowId === "number") {
-        await chrome.sidePanel.open({ windowId });
-      } else {
-        await chrome.sidePanel.open({ tabId });
-      }
-      const openedState = updateSidePanelState(tabId, { nativeSidebarOpen: true });
-      await broadcastSidePanelState(tabId);
-      return { ok: true, state: openedState };
+      const activeTab = await getActiveTab();
+      const activeWindowId = activeTab?.windowId;
+      return await tryOpen(activeWindowId);
     } catch (e2) {}
-    await sendMessageToTab(tabId, { action: "TOGGLE_UI", openSidebar: false, forceShow: true });
-    await broadcastSidePanelState(tabId);
-    return { ok: false, state };
+    return fallbackToFloating();
   }
 }
 
@@ -152,11 +226,7 @@ chrome.runtime.onInstalled.addListener(() => {
   if (chrome.sidePanel && typeof chrome.sidePanel.setPanelBehavior === "function") {
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   }
-  chrome.contextMenus.create({
-    id: "ai-search-pro-ask",
-    title: "发送给 OmniAI Search",
-    contexts: ["selection"]
-  });
+  setupContextMenus();
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -170,10 +240,11 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
 
 // 处理右键菜单点击
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "ai-search-pro-ask" && info.selectionText && tab?.id) {
+  if (AI_CONTEXT_MENU_ITEMS.some((item) => item.id === info.menuItemId) && info.selectionText && tab?.id) {
     sendMessageToTab(tab.id, {
       action: "SEARCH_FROM_CONTEXT_MENU",
-      text: info.selectionText
+      text: info.selectionText,
+      promptId: info.menuItemId
     }).catch(err => {
       console.log("Message failed:", err);
     });
@@ -209,6 +280,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
       const result = await openNativeSidePanel(tabId, { ...(message.state || {}), windowId: sender.tab?.windowId });
+      sendResponse(result);
+      return;
+    }
+
+    if (message?.type === "QUEUE_SIDEPANEL_CONTEXT_ACTION") {
+      const tabId = sender.tab?.id;
+      if (!tabId || typeof message.text !== "string") {
+        sendResponse({ ok: false });
+        return;
+      }
+      const action = {
+        id: message.actionId || `ctx_${Date.now()}`,
+        platformId: message.platformId || "doubao",
+        text: message.text
+      };
+      const result = await openAndQueueSidePanelContextAction(
+        tabId,
+        action,
+        message.state || {},
+        sender.tab?.windowId
+      );
       sendResponse(result);
       return;
     }
@@ -297,14 +389,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: false });
         return;
       }
+      const nextState = {
+        nativeSidebarOpen: false,
+        ...(message.state || {})
+      };
       if (message.query && typeof message.query === "string") {
-        updateSidePanelState(tabId, { query: message.query });
+        nextState.query = message.query;
+        await queueFloatingContextAction({
+          id: message.state?.selectionRequestId || `float_${Date.now()}`,
+          platformId: message.state?.currentPlatform || nextState.currentPlatform || "doubao",
+          text: message.query
+        });
       }
-      await sendMessageToTab(tabId, { action: "TOGGLE_UI", openSidebar: false, forceShow: true });
-      if (message.query && typeof message.query === "string") {
-        await sendMessageToTab(tabId, { action: "SEARCH_FROM_CONTEXT_MENU", text: message.query });
-      }
+      updateSidePanelState(tabId, nextState);
+      await broadcastSidePanelState(tabId);
       await closeNativeSidePanel(tabId, activeTab?.windowId);
+      await ensureContentScript(tabId);
+      await sendMessageToTab(tabId, { action: "TOGGLE_UI", openSidebar: false, forceShow: true });
       sendResponse({ ok: true });
       return;
     }

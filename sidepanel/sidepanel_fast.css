@@ -67,6 +67,12 @@ html, body {
   padding: 4px !important;
 }
 
+.ai-sp-header-dropdown-item {
+  padding: 0 10px !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
 .ai-sp-platforms-wrapper {
   position: relative;
   display: grid !important;

@@ -5,6 +5,7 @@
     yuanbao: { name: "元宝", url: "https://yuanbao.tencent.com/chat/naQivTmsDa" },
     deepseek: { name: "DeepSeek", url: "https://chat.deepseek.com/" },
     kimi: { name: "Kimi", url: "https://www.kimi.com/" },
+    zai: { name: "Z.AI", url: "https://chat.z.ai/" },
     chatglm: { name: "智谱清言", url: "https://chatglm.cn/main/alltoolsdetail?lang=zh" },
     chatgpt: { name: "ChatGPT", url: "https://chatgpt.com/" },
     gemini: { name: "Gemini", url: "https://gemini.google.com/" },
@@ -27,6 +28,7 @@
       deepseek: "deepseek.png",
       yuanbao: "yuanbao.png",
       kimi: "kimi.png",
+      zai: "zhipuai.png",
       chatglm: "chatglm.png",
       chatgpt: "chatgpt.png",
       gemini: "gemini.png",
@@ -952,9 +954,7 @@
     iframe.addEventListener("load", () => {
       if (pane.dataset.platformKey === "kimi" && query) {
         setTimeout(() => {
-          try {
-            iframe.contentWindow.postMessage({ type: "AI_SEARCH_PRO_NEW_QUERY", query }, "*");
-          } catch (e) {}
+          queueSendToPane(pane, query, makeRequestId(), 1);
         }, 180);
       }
       startRestoreForPane(pane, false);

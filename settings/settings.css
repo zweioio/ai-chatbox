@@ -490,6 +490,162 @@ button {
   background: var(--blue);
 }
 
+.settings-context-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.settings-context-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.settings-context-title {
+  margin: 0;
+  line-height: 14px;
+  color: #000000;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-context-desc {
+  margin: 0;
+  line-height: 12px;
+  color: #666666;
+  font-size: 12px;
+}
+
+.settings-context-card {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  align-self: stretch;
+  border: 1px solid #f1f2f3;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 11px;
+}
+
+.settings-context-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.settings-context-copy-title {
+  margin: 0;
+  line-height: 14px;
+  color: #000000;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-context-copy-desc {
+  margin: 0;
+  line-height: 12px;
+  color: #666666;
+  font-size: 12px;
+}
+
+.settings-context-platform {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.settings-context-platform-trigger {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #282828;
+  cursor: pointer;
+}
+
+.settings-context-platform-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-context-platform-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #c4e5ff;
+  flex: 0 0 auto;
+}
+
+.settings-context-platform-logo img {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.settings-context-platform-name {
+  line-height: 14px;
+  color: #282828;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.settings-context-platform-arrow {
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.settings-context-platform-arrow img {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.settings-context-platform-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 188px;
+  border: 1px solid #f1f2f3;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  padding: 8px;
+  z-index: 12;
+}
+
+.settings-context-platform-option {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 8px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: pointer;
+}
+
+.settings-context-platform-option:hover,
+.settings-context-platform-option.is-active {
+  background: #f6f8fa;
+}
+
 .settings-chip-card:has(input:checked) .settings-chip-check::after {
   content: "";
   position: absolute;

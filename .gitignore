@@ -23,3 +23,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 reference_plugin/
+
+# Local design and IDE workspace artifacts
+.figma/
+.trae/

@@ -4,6 +4,7 @@ const AI_PLATFORMS = {
   yuanbao: { name: '元宝', url: 'https://yuanbao.tencent.com/chat/naQivTmsDa', icon: 'yuanbao.png' },
   deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: 'deepseek.png' },
   kimi: { name: 'Kimi', url: 'https://www.kimi.com/', icon: 'kimi.png' },
+  zai: { name: 'Z.AI', url: 'https://chat.z.ai/', icon: 'zhipuai.png' },
   chatglm: { name: '智谱清言', url: 'https://chatglm.cn/main/alltoolsdetail?lang=zh', icon: 'chatglm.png' },
   chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: 'chatgpt.png' },
   gemini: { name: 'Gemini', url: 'https://gemini.google.com/', icon: 'gemini.png' },
@@ -19,14 +20,23 @@ const EMBEDDED_SEND_EVENT = 'AI_SP_EMBEDDED_SEND';
 const EMBEDDED_SEND_DONE_EVENT = 'AI_SP_EMBEDDED_SEND_DONE';
 const EMBEDDED_SEND_READY_REQUEST_EVENT = 'AI_SP_EMBEDDED_SEND_READY_REQUEST';
 const EMBEDDED_SEND_READY_RESPONSE_EVENT = 'AI_SP_EMBEDDED_SEND_READY_RESPONSE';
+const EMBEDDED_LOCATION_REQUEST_EVENT = 'AI_SP_EMBEDDED_LOCATION_REQUEST';
+const EMBEDDED_LOCATION_EVENT = 'AI_SP_EMBEDDED_LOCATION';
 const SEND_READY_MAX_RETRIES = 8;
 const SEND_READY_RETRY_GAP = 450;
 const SEND_READY_STABLE_DELAY = 320;
+const CONTEXT_READY_TIMEOUT = 1500;
+const CONTEXT_SEND_RETRY_MAX = 24;
+const CONTEXT_SEND_RETRY_GAP = 500;
 const pendingEmbeddedSends = new Map();
 const sendReadyRequests = new Map();
 const pendingSummaryRequests = new Map();
+const deferredContextSends = new Map();
+const contextReadyRequests = new Map();
+const pendingContextSends = new Map();
 const PROMPT_LIBRARY_STORAGE_KEY = 'aiSearchProPromptLibrary';
 const FAVORITES_STORAGE_KEY = 'aiSearchProFavorites';
+const SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY = 'aiSearchProSidepanelContextAction';
 const DEFAULT_SELECTION_DISPLAY_MODE = 'text';
 const PLATFORM_ORDER = Object.keys(AI_PLATFORMS);
 let currentPlatform = 'doubao';
@@ -35,11 +45,13 @@ let currentTheme = 'light';
 let enabledPlatforms = PLATFORM_ORDER.slice();
 let platformUrls = {};
 let activeTabId = null;
+let lastConsumedContextActionId = '';
 let promptLibraryCache = [];
 let userConfig = {
   platforms: PLATFORM_ORDER.map((id) => ({ id, enabled: true })),
   theme: 'light',
-  selectionDisplayMode: DEFAULT_SELECTION_DISPLAY_MODE
+  selectionDisplayMode: DEFAULT_SELECTION_DISPLAY_MODE,
+  contextMenuDefaultPlatform: 'doubao'
 };
 const DEFAULT_PROMPTS = [
   { id: 'prompt-explain', title: '解释', icon: '💡', template: '请用简单易懂的方式解释下面这段内容：\n\n{{text}}', enabled: true },
@@ -346,6 +358,21 @@ function buildPlatformUrl(platformKey, queryText) {
   return `${base}#q=${encodeURIComponent(q)}`;
 }
 
+function getContextLoadUrl(platformKey) {
+  const currentUrl = String(platformUrls[platformKey] || '').trim();
+  if (!currentUrl || currentUrl === 'about:blank') {
+    return AI_PLATFORMS[platformKey]?.url || 'about:blank';
+  }
+  if (currentUrl.includes('#q=')) {
+    return currentUrl.split('#q=')[0] || (AI_PLATFORMS[platformKey]?.url || 'about:blank');
+  }
+  return currentUrl;
+}
+
+function getContextStableDelay(platformKey) {
+  return platformKey === 'qianwen' ? 960 : SEND_READY_STABLE_DELAY;
+}
+
 function iconUrl(name) {
   return chrome.runtime.getURL(`icons/${name}.svg`);
 }
@@ -358,8 +385,8 @@ function getEnabledPlatformIds(config = userConfig) {
   const list = Array.isArray(config?.platforms)
     ? config.platforms.filter((p) => p?.enabled && AI_PLATFORMS[p.id]).map((p) => p.id)
     : [];
-  const activeSet = new Set(list);
-  return list.length ? PLATFORM_ORDER.filter((id) => activeSet.has(id)) : PLATFORM_ORDER.slice();
+  const enabledSet = new Set(list);
+  return list.length ? PLATFORM_ORDER.filter((id) => enabledSet.has(id)) : PLATFORM_ORDER.slice();
 }
 
 function mergePlatformsWithDefaults(platforms = []) {
@@ -417,6 +444,102 @@ function markEmbeddedSendFailure(requestId, platformKey) {
   pending.failed.add(platformKey);
   if (pending.done.size + pending.failed.size >= pending.expected.size) {
     finalizeEmbeddedSend(requestId);
+  }
+}
+
+function clearContextReadyRequest(platformKey) {
+  const entry = contextReadyRequests.get(platformKey);
+  if (!entry) return;
+  clearTimeout(entry.timer);
+  contextReadyRequests.delete(platformKey);
+}
+
+function clearPendingContextSend(platformKey) {
+  const entry = pendingContextSends.get(platformKey);
+  if (!entry) return;
+  clearTimeout(entry.timer);
+  pendingContextSends.delete(platformKey);
+}
+
+function queueSendToContextPlatform(platformKey, text, requestId, attempt = 1) {
+  const iframe = document.getElementById(`ai-sp-sidepanel-iframe-${platformKey}`);
+  clearPendingContextSend(platformKey);
+  if (!iframe?.contentWindow) {
+    if (attempt >= CONTEXT_SEND_RETRY_MAX) {
+      clearPendingContextSend(platformKey);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      queueSendToContextPlatform(platformKey, text, requestId, attempt + 1);
+    }, CONTEXT_SEND_RETRY_GAP);
+    pendingContextSends.set(platformKey, { requestId, text, attempt, timer });
+    return;
+  }
+  deferredContextSends.delete(platformKey);
+  try {
+    iframe.contentWindow.postMessage({
+      type: EMBEDDED_SEND_EVENT,
+      text,
+      submit: true,
+      requestId,
+      paneId: platformKey
+    }, '*');
+  } catch (e) {}
+  if (attempt >= CONTEXT_SEND_RETRY_MAX) {
+    clearPendingContextSend(platformKey);
+    return;
+  }
+  const timer = window.setTimeout(() => {
+    queueSendToContextPlatform(platformKey, text, requestId, attempt + 1);
+  }, CONTEXT_SEND_RETRY_GAP);
+  pendingContextSends.set(platformKey, { requestId, text, attempt, timer });
+}
+
+function flushDeferredContextSend(platformKey, requestId) {
+  const deferred = deferredContextSends.get(platformKey);
+  if (!deferred || deferred.requestId !== requestId) return;
+  window.setTimeout(() => {
+    queueSendToContextPlatform(platformKey, deferred.text, deferred.requestId, 1);
+  }, getContextStableDelay(platformKey));
+}
+
+function requestDeferredContextSend(platformKey, requestId, text, attempt = 1) {
+  const iframe = document.getElementById(`ai-sp-sidepanel-iframe-${platformKey}`);
+  if (!iframe?.contentWindow) return;
+  clearContextReadyRequest(platformKey);
+  const timer = window.setTimeout(() => {
+    clearContextReadyRequest(platformKey);
+    const deferred = deferredContextSends.get(platformKey);
+    if (!deferred || deferred.requestId !== requestId) return;
+    if (attempt < SEND_READY_MAX_RETRIES) {
+      requestDeferredContextSend(platformKey, requestId, text, attempt + 1);
+    } else {
+      flushDeferredContextSend(platformKey, requestId);
+    }
+  }, CONTEXT_READY_TIMEOUT);
+  contextReadyRequests.set(platformKey, { requestId, text, attempt, timer });
+  try {
+    iframe.contentWindow.postMessage({
+      type: EMBEDDED_LOCATION_REQUEST_EVENT,
+      requestId,
+      paneId: platformKey
+    }, '*');
+  } catch (e) {
+    clearContextReadyRequest(platformKey);
+    if (attempt < SEND_READY_MAX_RETRIES) {
+      requestDeferredContextSend(platformKey, requestId, text, attempt + 1);
+    } else {
+      flushDeferredContextSend(platformKey, requestId);
+    }
+  }
+}
+
+function queueDeferredContextSend(platformKey, text, requestId = makeSendRequestId()) {
+  deferredContextSends.set(platformKey, { requestId, text });
+  platformUrls[platformKey] = getContextLoadUrl(platformKey);
+  ensureIframeLoaded(platformKey, text);
+  if (loadedIds.has(platformKey)) {
+    requestDeferredContextSend(platformKey, requestId, text, 1);
   }
 }
 
@@ -573,6 +696,10 @@ function renderContainers() {
   area.innerHTML = '';
   loadTimeouts.forEach((timer) => clearTimeout(timer));
   loadTimeouts.clear();
+  contextReadyRequests.forEach((entry) => clearTimeout(entry.timer));
+  contextReadyRequests.clear();
+  pendingContextSends.forEach((entry) => clearTimeout(entry.timer));
+  pendingContextSends.clear();
   enabledPlatforms.forEach((key) => {
     const wrap = document.createElement('div');
     wrap.className = 'ai-sp-iframe-container';
@@ -693,19 +820,6 @@ function sendQueryToIframe(platformKey, queryText) {
   queueEmbeddedSend(platformKey, q, requestId, 1);
 }
 
-function broadcastQueryToPlatforms(queryText) {
-  const q = normalizeText(queryText);
-  if (!q) return;
-  enabledPlatforms.forEach((key) => {
-    if (loadedIds.has(key)) {
-      sendQueryToIframe(key, q);
-    } else {
-      platformUrls[key] = buildPlatformUrl(key, q);
-    }
-  });
-  ensureIframeLoaded(currentPlatform, q);
-}
-
 function ensureIframeLoaded(platformKey, queryText) {
   if (loadedIds.has(platformKey)) return;
   const iframe = document.getElementById(`ai-sp-sidepanel-iframe-${platformKey}`);
@@ -733,6 +847,11 @@ function ensureIframeLoaded(platformKey, queryText) {
     if (timer) {
       clearTimeout(timer);
       loadTimeouts.delete(platformKey);
+    }
+    const deferred = deferredContextSends.get(platformKey);
+    if (deferred) {
+      requestDeferredContextSend(platformKey, deferred.requestId, deferred.text, 1);
+      return;
     }
     if (!shouldUseHashBootstrap(platformKey) && queryText) {
       setTimeout(() => sendQueryToIframe(platformKey, queryText), 180);
@@ -817,6 +936,31 @@ async function fetchSidebarState() {
       resolve(resp.state || null);
     });
   });
+}
+
+async function readQueuedContextAction() {
+  const data = await chrome.storage.local.get([SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY]);
+  return data?.[SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY] || null;
+}
+
+async function clearQueuedContextAction() {
+  await chrome.storage.local.remove(SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY);
+}
+
+async function consumeQueuedContextAction(action) {
+  const text = normalizeText(action?.text || '');
+  if (!text) return;
+  const actionId = String(action?.id || '').trim();
+  if (actionId && actionId === lastConsumedContextActionId) return;
+  if (actionId) lastConsumedContextActionId = actionId;
+  const targetPlatform = enabledPlatforms.includes(action?.platformId) ? action.platformId : (enabledPlatforms[0] || currentPlatform);
+  const requestId = action?.id || makeSendRequestId();
+  currentQuery = text;
+  currentPlatform = targetPlatform;
+  platformUrls[targetPlatform] = buildPlatformUrl(targetPlatform, text);
+  setActivePlatform(targetPlatform);
+  queueDeferredContextSend(targetPlatform, text, requestId);
+  await syncSidebarState();
 }
 
 async function syncFromActiveTab() {
@@ -1031,7 +1175,17 @@ function bindEvents() {
   document.getElementById('ai-sp-toggle-mode-btn')?.addEventListener('click', async () => {
     const tabId = await resolveTargetTabId();
     if (!tabId) return;
-    await sendRuntimeMessage({ type: 'OPEN_FLOATING_UI', tabId, query: currentQuery });
+    await sendRuntimeMessage({
+      type: 'OPEN_FLOATING_UI',
+      tabId,
+      query: currentQuery,
+      state: {
+        currentPlatform,
+        enabledPlatforms,
+        platformUrls,
+        theme: currentTheme
+      }
+    });
   });
 
   window.addEventListener('resize', updateScrollButtons);
@@ -1053,6 +1207,10 @@ function bindEvents() {
             clearTimeout(timer);
             loadTimeouts.delete(key);
           }
+          const deferred = deferredContextSends.get(key);
+          if (deferred) {
+            requestDeferredContextSend(key, deferred.requestId, deferred.text, 1);
+          }
         }
       });
       return;
@@ -1069,7 +1227,31 @@ function bindEvents() {
       });
       return;
     }
+    if (event.data?.type === EMBEDDED_LOCATION_EVENT && event.data.requestId) {
+      enabledPlatforms.forEach((key) => {
+        const iframe = document.getElementById(`ai-sp-sidepanel-iframe-${key}`);
+        if (iframe?.contentWindow !== event.source) return;
+        const contextEntry = contextReadyRequests.get(key);
+        if (!contextEntry || contextEntry.requestId !== event.data.requestId) return;
+        clearContextReadyRequest(key);
+        if (event.data.href) {
+          platformUrls[key] = event.data.href;
+        }
+        const deferred = deferredContextSends.get(key);
+        if (!deferred || deferred.requestId !== event.data.requestId) return;
+        flushDeferredContextSend(key, deferred.requestId);
+      });
+      return;
+    }
     if (event.data?.type === EMBEDDED_SEND_READY_RESPONSE_EVENT && event.data.requestId && event.data.paneId) {
+      const contextEntry = contextReadyRequests.get(event.data.paneId);
+      if (contextEntry && contextEntry.requestId === event.data.requestId) {
+        clearContextReadyRequest(event.data.paneId);
+        const deferred = deferredContextSends.get(event.data.paneId);
+        if (!deferred || deferred.requestId !== event.data.requestId) return;
+        flushDeferredContextSend(event.data.paneId, deferred.requestId);
+        return;
+      }
       const key = `${event.data.requestId}:${event.data.paneId}`;
       const entry = sendReadyRequests.get(key);
       if (!entry) return;
@@ -1089,6 +1271,14 @@ function bindEvents() {
       return;
     }
     if (event.data?.type === EMBEDDED_SEND_DONE_EVENT && event.data.requestId && event.data.paneId) {
+      const pendingContext = pendingContextSends.get(event.data.paneId);
+      if (pendingContext && pendingContext.requestId === event.data.requestId) {
+        if (event.data.ok !== false) {
+          clearPendingContextSend(event.data.paneId);
+          deferredContextSends.delete(event.data.paneId);
+        }
+        return;
+      }
       const pending = pendingEmbeddedSends.get(event.data.requestId);
       if (pending && pending.expected.has(event.data.paneId)) {
         clearReadyRequestEntry(`${event.data.requestId}:${event.data.paneId}`);
@@ -1119,7 +1309,7 @@ function bindEvents() {
   });
 }
 
-function init() {
+function init(initialQueuedAction = null) {
   renderShell();
   renderPlatforms();
   renderContainers();
@@ -1128,12 +1318,18 @@ function init() {
     if (areaName === 'local' && changes[PROMPT_LIBRARY_STORAGE_KEY]) {
       promptLibraryCache = normalizePromptLibrary(changes[PROMPT_LIBRARY_STORAGE_KEY].newValue);
     }
+    if (areaName === 'local' && changes[SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY]?.newValue) {
+      consumeQueuedContextAction(changes[SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY].newValue).catch(() => {});
+      clearQueuedContextAction().catch(() => {});
+    }
   });
   setActivePlatform(currentPlatform);
-  ensureIframeLoaded(currentPlatform, currentQuery);
+  if (initialQueuedAction) {
+    consumeQueuedContextAction(initialQueuedAction).then(() => clearQueuedContextAction()).catch(() => {});
+  } else {
+    ensureIframeLoaded(currentPlatform, currentQuery);
+  }
   let lastEnabledPlatformsSignature = getPlatformsSignature(enabledPlatforms);
-  let lastBroadcastQuery = currentQuery;
-  let lastSelectionRequestId = '';
   chrome.runtime.onMessage.addListener((message) => {
     if (message?.type !== 'SIDEPANEL_STATE_UPDATED') return;
     const state = message.state || {};
@@ -1157,7 +1353,9 @@ function init() {
           renderPlatforms();
           renderContainers();
           setActivePlatform(currentPlatform);
-          ensureIframeLoaded(currentPlatform, currentQuery);
+          if (!deferredContextSends.size) {
+            ensureIframeLoaded(currentPlatform, currentQuery);
+          }
           return;
         }
       }
@@ -1165,19 +1363,9 @@ function init() {
     if (state.currentPlatform && enabledPlatforms.includes(state.currentPlatform)) {
       currentPlatform = state.currentPlatform;
       setActivePlatform(currentPlatform);
-      ensureIframeLoaded(currentPlatform, currentQuery);
-    }
-    if (typeof state.selectionRequestId === 'string' && state.selectionRequestId) {
-      if (state.selectionRequestId !== lastSelectionRequestId) {
-        lastSelectionRequestId = state.selectionRequestId;
-        lastBroadcastQuery = currentQuery;
-        broadcastQueryToPlatforms(currentQuery);
+      if (!deferredContextSends.size) {
+        ensureIframeLoaded(currentPlatform, currentQuery);
       }
-      return;
-    }
-    if (currentQuery && currentQuery !== lastBroadcastQuery) {
-      lastBroadcastQuery = currentQuery;
-      broadcastQueryToPlatforms(currentQuery);
     }
   });
 }
@@ -1186,6 +1374,7 @@ function init() {
   await readConfig();
   await loadPromptLibrary();
   const state = await fetchSidebarState();
+  const queuedAction = await readQueuedContextAction();
   if (state) {
     if (typeof state.query === 'string') currentQuery = normalizeText(state.query);
     if (state.theme) {
@@ -1206,6 +1395,6 @@ function init() {
     currentPlatform = enabledPlatforms[0] || 'doubao';
     currentQuery = await fetchQueryFromActiveTab();
   }
-  init();
+  init(queuedAction);
   updateScrollButtons();
 })();

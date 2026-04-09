@@ -7,6 +7,7 @@
     yuanbao: { name: '元宝', url: 'https://yuanbao.tencent.com/chat/naQivTmsDa', icon: `<img src="${chrome.runtime.getURL('assets/yuanbao.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/yuanbao.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/deepseek.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     kimi: { name: 'Kimi', url: 'https://www.kimi.com/', icon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/kimi.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
+    zai: { name: 'Z.AI', url: 'https://chat.z.ai/', icon: `<img src="${chrome.runtime.getURL('assets/zhipuai.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/zhipuai.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     chatglm: { name: '智谱清言', url: 'https://chatglm.cn/main/alltoolsdetail?lang=zh', icon: `<img src="${chrome.runtime.getURL('assets/chatglm.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/chatglm.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: `<img src="${chrome.runtime.getURL('assets/chatgpt.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/chatgpt.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
     gemini: { name: 'Gemini', url: 'https://gemini.google.com/', icon: `<img src="${chrome.runtime.getURL('assets/gemini.png')}" style="width:24px;height:24px;vertical-align:middle;">`, settingsIcon: `<img src="${chrome.runtime.getURL('assets/gemini.png')}" style="width:32px;height:32px;vertical-align:middle;">` },
@@ -38,6 +39,7 @@
       id,
       enabled: true
     })),
+    contextMenuDefaultPlatform: 'doubao',
     selectionMorePromptIds: ['prompt-polish', 'prompt-rewrite'],
     promptOrder: [
       'prompt-explain',
@@ -57,6 +59,7 @@
   let nativeSidebarOpen = false;
   const PROMPT_LIBRARY_STORAGE_KEY = 'aiSearchProPromptLibrary';
   const FAVORITES_STORAGE_KEY = 'aiSearchProFavorites';
+  const FLOATING_CONTEXT_ACTION_STORAGE_KEY = 'aiSearchProFloatingContextAction';
   const DEFAULT_PROMPTS = [
     { id: 'prompt-explain', title: '解释', icon: '💡', template: '请用简单易懂的方式解释下面这段内容：\n\n{{text}}', enabled: true },
     { id: 'prompt-summary', title: '总结', icon: '📝', template: '请总结下面这段内容的核心要点：\n\n{{text}}', enabled: true },
@@ -91,6 +94,7 @@
     time: '',
     placement: 'bottom'
   };
+  let pendingFloatingContextAction = null;
   const SETTINGS_MENU_ITEMS = [
     { action: 'inline-assistants', label: 'AI 助手显示设置' },
     { tab: 'general', label: '系统设置' }
@@ -106,6 +110,27 @@
 
   function openMemoPage() {
     openExtensionPage('favorites/favorites.html');
+  }
+
+  async function readQueuedFloatingContextAction() {
+    const data = await chrome.storage.local.get([FLOATING_CONTEXT_ACTION_STORAGE_KEY]);
+    return data?.[FLOATING_CONTEXT_ACTION_STORAGE_KEY] || null;
+  }
+
+  async function queueFloatingContextAction(action) {
+    if (!action?.text) return;
+    await chrome.storage.local.set({
+      [FLOATING_CONTEXT_ACTION_STORAGE_KEY]: {
+        id: action.id || `float_${Date.now()}`,
+        platformId: action.platformId || currentPlatform,
+        text: action.text,
+        createdAt: Date.now()
+      }
+    });
+  }
+
+  async function clearQueuedFloatingContextAction() {
+    await chrome.storage.local.remove(FLOATING_CONTEXT_ACTION_STORAGE_KEY);
   }
 
   function normalizePromptLibrary(list) {
@@ -196,17 +221,7 @@
   }
 
   function normalizeUserConfig(rawConfig = {}) {
-    const allPlatformKeys = PLATFORM_ORDER;
-    const incomingPlatforms = Array.isArray(rawConfig.platforms) ? rawConfig.platforms : [];
-    const enabledMap = new Map(
-      incomingPlatforms
-        .filter((item) => item && allPlatformKeys.includes(item.id))
-        .map((item) => [item.id, item.enabled !== false])
-    );
-    const mergedPlatforms = allPlatformKeys.map((key) => ({
-      id: key,
-      enabled: enabledMap.has(key) ? enabledMap.get(key) : true
-    }));
+    const mergedPlatforms = normalizeToggleList(rawConfig.platforms, AI_PLATFORMS);
     const normalizedSearchEngines = normalizeToggleList(
       rawConfig.searchAssistant?.engines || rawConfig.searchEngines,
       SEARCH_ENGINES
@@ -220,9 +235,22 @@
       selectionToolbarEnabled: rawConfig.selectionToolbar?.enabled !== false && rawConfig.selectionToolbarEnabled !== false,
       searchAssistantEnabled: rawConfig.searchAssistant?.enabled !== false && rawConfig.searchAssistantEnabled !== false,
       searchEngines: normalizedSearchEngines,
+      contextMenuDefaultPlatform: AI_PLATFORMS[rawConfig.contextMenuDefaultPlatform] ? rawConfig.contextMenuDefaultPlatform : 'doubao',
       selectionMorePromptIds: normalizeMorePromptIds(rawConfig.selectionMorePromptIds, DEFAULT_PROMPTS),
       promptOrder: normalizePromptOrder(rawConfig.promptOrder, DEFAULT_PROMPTS)
     };
+  }
+
+  function getDefaultEnabledPlatformId() {
+    return userConfig.platforms.find((item) => item.enabled && AI_PLATFORMS[item.id])?.id || 'doubao';
+  }
+
+  function getDefaultContextMenuPlatformId() {
+    return AI_PLATFORMS[userConfig.contextMenuDefaultPlatform] ? userConfig.contextMenuDefaultPlatform : 'doubao';
+  }
+
+  function getPlatformAssetFile(platformKey) {
+    return platformKey === 'zai' ? 'zhipuai.png' : `${platformKey}.png`;
   }
 
   function applyPromptTemplate(template, text, variables = {}) {
@@ -252,6 +280,49 @@
     const data = await chrome.storage.local.get([PROMPT_LIBRARY_STORAGE_KEY]);
     promptLibraryCache = normalizePromptLibrary(data?.[PROMPT_LIBRARY_STORAGE_KEY]);
     return promptLibraryCache;
+  }
+
+  function findPromptById(promptId) {
+    if (!promptId) return null;
+    return promptLibraryCache.find((item) => item.id === promptId)
+      || DEFAULT_PROMPTS.find((item) => item.id === promptId)
+      || null;
+  }
+
+  async function openFloatingContextAction(text, platformId = currentPlatform) {
+    const action = {
+      id: `float_${Date.now()}`,
+      platformId: AI_PLATFORMS[platformId] ? platformId : currentPlatform,
+      text
+    };
+    await queueFloatingContextAction(action);
+    pendingFloatingContextAction = action;
+    if (window.__aiSearchProConsumeFloatingContextAction) {
+      window.__aiSearchProToggleUI(true);
+      const consumed = await window.__aiSearchProConsumeFloatingContextAction(action);
+      if (consumed) {
+        await clearQueuedFloatingContextAction();
+      }
+    } else {
+      createUI('', userConfig.platforms.filter(p => p.enabled).map(p => p.id), { initialQueuedAction: action });
+    }
+    return true;
+  }
+
+  async function handleContextMenuPrompt(promptId, text) {
+    const rawText = String(text || '').trim();
+    if (!rawText) return false;
+    await loadPromptLibrary();
+    const prompt = findPromptById(promptId);
+    if (!prompt) return false;
+    const finalText = applyPromptTemplate(prompt.template, rawText, {
+      context: rawText,
+      page: document.title,
+      url: window.location.href,
+      time: new Date().toLocaleString()
+    });
+    await openSelectionPrompt(finalText, getDefaultContextMenuPlatformId());
+    return true;
   }
 
   function queryNativeSidebarState() {
@@ -556,7 +627,7 @@
       platformName.textContent = AI_PLATFORMS[currentPlatform]?.name || '豆包';
     }
     if (platformLogo) {
-      platformLogo.src = chrome.runtime.getURL(`assets/${currentPlatform}.png`);
+      platformLogo.src = chrome.runtime.getURL(`assets/${getPlatformAssetFile(currentPlatform)}`);
       platformLogo.alt = AI_PLATFORMS[currentPlatform]?.name || '';
     }
     if (platformSendBtn) {
@@ -580,7 +651,7 @@
             aria-checked="${isActive ? 'true' : 'false'}"
           >
             <span class="ai-sp-selection-platform-item-logo">
-              <img src="${chrome.runtime.getURL(`assets/${platformKey}.png`)}" alt="${escapeSelectionHtml(platform.name)}">
+              <img src="${chrome.runtime.getURL(`assets/${getPlatformAssetFile(platformKey)}`)}" alt="${escapeSelectionHtml(platform.name)}">
             </span>
             <span class="ai-sp-selection-platform-item-name">${escapeSelectionHtml(platform.name)}</span>
             <span class="ai-sp-selection-platform-item-check" aria-hidden="true">${isActive ? '当前' : ''}</span>
@@ -593,16 +664,24 @@
   async function openSelectionPrompt(text, platformKey = currentPlatform) {
     const query = text.trim();
     if (!query) return;
+    const nextPlatform = AI_PLATFORMS[platformKey] ? platformKey : currentPlatform;
     if (AI_PLATFORMS[platformKey]) {
       syncSelectionPlatform(platformKey);
     }
-    const shouldUseNativeSidebar = await queryNativeSidebarState();
-    chrome.runtime.sendMessage(
-      shouldUseNativeSidebar
-        ? { type: 'OPEN_NATIVE_SIDEBAR', state: { query, currentPlatform, selectionRequestId: `sel_${Date.now()}` } }
-        : { type: 'OPEN_FLOATING_UI', query },
-      () => chrome.runtime.lastError
-    );
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        type: 'QUEUE_SIDEPANEL_CONTEXT_ACTION',
+        text: query,
+        platformId: nextPlatform,
+        actionId: `sel_${Date.now()}`,
+        state: {
+          currentPlatform: nextPlatform,
+          forceSidebarOnly: true
+        }
+      }, (response) => {
+        resolve(Boolean(response?.ok) && !chrome.runtime.lastError);
+      });
+    });
   }
 
   function ensureSelectionToolbar() {
@@ -1028,7 +1107,7 @@
         }
         .ai-sp-selection-menu-item:hover,
         .ai-sp-selection-menu-item:focus-visible {
-          background: #f5f7ff;
+          background: #f2f2f2;
         }
         .ai-sp-selection-menu-item-icon {
           width: 20px;
@@ -1209,13 +1288,6 @@
           </span>
         </button>
       `).join('')}
-      <button class="ai-sp-selection-menu-item" data-selection-action="prompts">
-        <span class="ai-sp-selection-menu-item-icon">${getSelectionMenuIconMarkup(SELECTION_PROMPTS_ICON, '•')}</span>
-        <span class="ai-sp-selection-menu-item-copy">
-          <span class="ai-sp-selection-menu-item-title">打开提示词库</span>
-          <small>管理快捷提示词</small>
-        </span>
-      </button>
     `;
     moreBtn.hidden = morePrompts.length === 0;
     const hideSelectionTooltip = () => {
@@ -1279,6 +1351,13 @@
         scheduleCloseSelectionMoreMenu();
       };
     }
+    toolbar.onmousedown = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    toolbar.ontouchstart = (event) => {
+      event.stopPropagation();
+    };
     toolbar.onmouseover = (event) => {
       const button = event.target.closest('.ai-sp-selection-main button');
       if (!button) {
@@ -1377,11 +1456,30 @@
     toolbar.style.top = `${top}px`;
   }
 
+  function isSelectionToolbarEvent(event) {
+    if (!selectionToolbarEl || !event) return false;
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    return path.includes(selectionToolbarEl) || selectionToolbarEl.contains(event.target);
+  }
+
   function initSelectionQuickAsk() {
     loadPromptLibrary();
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName === 'local' && changes[PROMPT_LIBRARY_STORAGE_KEY]) {
         promptLibraryCache = normalizePromptLibrary(changes[PROMPT_LIBRARY_STORAGE_KEY].newValue);
+      }
+      if (areaName === 'local' && changes[FLOATING_CONTEXT_ACTION_STORAGE_KEY]?.newValue) {
+        pendingFloatingContextAction = changes[FLOATING_CONTEXT_ACTION_STORAGE_KEY].newValue;
+        if (window.__aiSearchProConsumeFloatingContextAction) {
+          window.__aiSearchProConsumeFloatingContextAction(pendingFloatingContextAction)
+            .then((consumed) => {
+              if (consumed) {
+                pendingFloatingContextAction = null;
+                clearQueuedFloatingContextAction().catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
       }
       if (areaName === 'local' && changes.aiSearchProConfig) {
         userConfig = normalizeUserConfig(changes.aiSearchProConfig.newValue);
@@ -1399,21 +1497,26 @@
       }
     });
     document.addEventListener('mousedown', (event) => {
+      if (isSelectionToolbarEvent(event)) return;
       if (selectionToolbarEl && !selectionToolbarEl.contains(event.target)) {
         hideSelectionToolbar(true);
       }
     });
     document.addEventListener('scroll', () => refreshSelectionToolbarPosition(), true);
     window.addEventListener('resize', () => refreshSelectionToolbarPosition());
-    document.addEventListener('touchstart', () => hideSelectionToolbar(true), { passive: true });
+    document.addEventListener('touchstart', (event) => {
+      if (isSelectionToolbarEvent(event)) return;
+      hideSelectionToolbar(true);
+    }, { passive: true });
     document.addEventListener('selectionchange', () => {
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed) {
         hideSelectionToolbar();
       }
     });
-    const showSelectionToolbar = () => {
+    const showSelectionToolbar = (event) => {
       window.setTimeout(async () => {
+        if (isSelectionToolbarEvent(event)) return;
         if (!isSelectionToolbarEnabled()) {
           hideSelectionToolbar(true);
           return;
@@ -1577,6 +1680,7 @@
     const sendReadyRequests = new Map();
     const pendingSummaryRequests = new Map();
     let currentSessionQuery = (query || '').trim();
+    let lastFloatingActionId = '';
     const getEnabledPlatformsList = () => userConfig.platforms
       .filter(p => p.enabled && AI_PLATFORMS[p.id])
       .map(p => p.id);
@@ -2998,48 +3102,74 @@
     const webBtn = container.querySelector('#ai-sp-web-btn');
     if(webBtn) webBtn.addEventListener('click', openWeb);
 
-    // 广播查询给所有启用的 AI
-    const triggerGlobalSend = (text) => {
-      const sendText = (text || '').trim();
-      if (!sendText) return;
-      currentSessionQuery = sendText;
-      const requestId = makeSendRequestId();
-      
-      const enabledPlatformsList = userConfig.platforms
-        .filter(p => p.enabled && AI_PLATFORMS[p.id])
-        .map(p => p.id);
-      const expected = new Set();
-        
-      enabledPlatformsList.forEach(platformKey => {
-        const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
-        if (iframe) {
-          if (loadedPlatforms[platformKey]) {
-            expected.add(platformKey);
-            queueEmbeddedSend(platformKey, sendText, requestId, 1);
-          } else {
-            const loading = document.getElementById(`ai-sp-loading-${platformKey}`);
-            const newUrl = `${AI_PLATFORMS[platformKey].url}#q=${encodeURIComponent(sendText)}`;
-            platformUrls[platformKey] = newUrl;
-            iframe.style.opacity = '0';
-            if (loading) loading.style.display = 'flex';
-            iframe.src = platformUrls[platformKey];
-            loadedPlatforms[platformKey] = true;
-          }
-        }
+    const setFloatingActivePlatform = (targetPlatform) => {
+      if (!AI_PLATFORMS[targetPlatform]) return;
+      const platformBtns = container.querySelectorAll('.ai-sp-platform-btn');
+      platformBtns.forEach((button) => {
+        button.classList.toggle('active', button.dataset.platform === targetPlatform);
       });
-      if (expected.size) {
+      const oldContainer = document.getElementById(`ai-sp-container-${currentPlatform}`);
+      const newContainer = document.getElementById(`ai-sp-container-${targetPlatform}`);
+      if (oldContainer) {
+        oldContainer.style.opacity = '0';
+        oldContainer.style.pointerEvents = 'none';
+        oldContainer.style.zIndex = '1';
+      }
+      if (newContainer) {
+        newContainer.style.opacity = '1';
+        newContainer.style.pointerEvents = 'auto';
+        newContainer.style.zIndex = '10';
+      }
+      currentPlatform = targetPlatform;
+      const activeBtn = container.querySelector(`.ai-sp-platform-btn[data-platform="${targetPlatform}"]`);
+      if (activeBtn) {
+        setTimeout(() => ensurePlatformBtnVisible(activeBtn), 60);
+      }
+    };
+
+    const triggerPlatformSend = (text, targetPlatform = currentPlatform) => {
+      const sendText = (text || '').trim();
+      if (!sendText || !AI_PLATFORMS[targetPlatform]) return false;
+      currentSessionQuery = sendText;
+      setFloatingActivePlatform(targetPlatform);
+      const iframe = document.getElementById(`ai-sp-iframe-${targetPlatform}`);
+      const loading = document.getElementById(`ai-sp-loading-${targetPlatform}`);
+      const wasLoaded = loadedPlatforms[targetPlatform] === true;
+      if (!iframe) return false;
+      if (wasLoaded) {
+        const requestId = makeSendRequestId();
         pendingEmbeddedSends.set(requestId, {
-          expected,
+          expected: new Set([targetPlatform]),
           done: new Set(),
           failed: new Set(),
           timer: window.setTimeout(() => finalizeEmbeddedSend(requestId), 4500)
         });
+        queueEmbeddedSend(targetPlatform, sendText, requestId, 1);
+      } else {
+        platformUrls[targetPlatform] = buildPlatformUrl(targetPlatform, sendText);
+        iframe.style.opacity = '0';
+        if (loading) loading.style.display = 'flex';
+        iframe.src = platformUrls[targetPlatform];
+        loadedPlatforms[targetPlatform] = true;
       }
       syncNativeSidePanelState();
+      return true;
     };
 
-    // 将方法暴露给 window，方便右键菜单直接调用
-    window.__aiSearchProBroadcastQuery = triggerGlobalSend;
+    window.__aiSearchProBroadcastQuery = null;
+    window.__aiSearchProConsumeFloatingContextAction = async (action) => {
+      const text = (action?.text || '').trim();
+      if (!text) return false;
+      const actionId = String(action?.id || '').trim();
+      if (actionId && actionId === lastFloatingActionId) return false;
+      if (actionId) lastFloatingActionId = actionId;
+      const targetPlatform = AI_PLATFORMS[action?.platformId] ? action.platformId : currentPlatform;
+      const consumed = triggerPlatformSend(text, targetPlatform);
+      if (consumed) {
+        pendingFloatingContextAction = null;
+      }
+      return consumed;
+    };
     window.__aiSearchProToggleUI = (forceShow) => {
       const isVisible = container.style.display !== 'none' && container.style.opacity !== '0';
       if (isVisible && !forceShow) {
@@ -3055,6 +3185,25 @@
         }
       }
     };
+    if (pendingFloatingContextAction) {
+      window.__aiSearchProConsumeFloatingContextAction(pendingFloatingContextAction)
+        .then((consumed) => {
+          if (consumed) {
+            clearQueuedFloatingContextAction().catch(() => {});
+          }
+        })
+        .catch(() => {});
+    } else {
+      readQueuedFloatingContextAction().then((action) => {
+        if (!action) return;
+        pendingFloatingContextAction = action;
+        return window.__aiSearchProConsumeFloatingContextAction(action).then((consumed) => {
+          if (consumed) {
+            clearQueuedFloatingContextAction().catch(() => {});
+          }
+        });
+      }).catch(() => {});
+    }
 
     // 监听 URL / 搜索词变化 (只针对原生搜索引擎的输入)
     let lastUrlQuery = getSearchQuery() || query;
@@ -3081,7 +3230,7 @@
           adjustPageLayout();
         }
         currentSessionQuery = currentQuery;
-        triggerGlobalSend(currentQuery);
+        triggerPlatformSend(currentQuery, currentPlatform);
       }
     }, 1000);
 
@@ -3179,6 +3328,7 @@
 
   // 全局暴露一个触发查询的方法，方便外部调用（如右键菜单、全局输入框）
   window.__aiSearchProBroadcastQuery = null;
+  window.__aiSearchProConsumeFloatingContextAction = null;
   window.__aiSearchProToggleUI = null;
 
   // 监听扩展后台的消息（右键菜单、图标点击）
@@ -3209,13 +3359,17 @@
       sendResponse({status: "ok"});
     } else if (request.action === 'SEARCH_FROM_CONTEXT_MENU') {
       const text = request.text;
-      if (window.__aiSearchProBroadcastQuery) {
-        window.__aiSearchProToggleUI(true); // 强制显示
-        window.__aiSearchProBroadcastQuery(text);
-      } else {
-        createUI(text, userConfig.platforms.filter(p => p.enabled).map(p => p.id));
+      const promptId = typeof request.promptId === 'string' ? request.promptId : '';
+      if (promptId) {
+        handleContextMenuPrompt(promptId, text)
+          .then((ok) => sendResponse({ status: ok ? 'ok' : 'error' }))
+          .catch(() => sendResponse({ status: 'error' }));
+        return true;
       }
-      sendResponse({status: "ok"});
+      openSelectionPrompt(text, getDefaultContextMenuPlatformId())
+        .then(() => sendResponse({ status: 'ok' }))
+        .catch(() => sendResponse({ status: 'error' }));
+      return true;
     }
   });
 

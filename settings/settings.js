@@ -8,6 +8,7 @@
     yuanbao: true,
     deepseek: true,
     kimi: true,
+    zai: true,
     chatglm: true,
     chatgpt: true,
     gemini: true,
@@ -26,6 +27,7 @@
     yuanbao: { name: '元宝', url: 'https://yuanbao.tencent.com/chat/naQivTmsDa', icon: 'assets/yuanbao.png' },
     deepseek: { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: 'assets/deepseek.png' },
     kimi: { name: 'Kimi', url: 'https://www.kimi.com/', icon: 'assets/kimi.png' },
+    zai: { name: 'Z.AI', url: 'https://chat.z.ai/', icon: 'assets/zhipuai.png' },
     chatglm: { name: '智谱清言', url: 'https://chatglm.cn/main/alltoolsdetail?lang=zh', icon: 'assets/chatglm.png' },
     chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: 'assets/chatgpt.png' },
     gemini: { name: 'Gemini', url: 'https://gemini.google.com/', icon: 'assets/gemini.png' },
@@ -93,6 +95,10 @@
 
   function normalizeTheme(mode) {
     return ['auto', 'dark', 'light'].includes(mode) ? mode : 'light';
+  }
+
+  function normalizePlatformId(id) {
+    return AI_PLATFORMS[id] ? id : 'doubao';
   }
 
   function normalizeToggleList(rawList, sourceMap) {
@@ -191,6 +197,7 @@
         enabled: rawConfig.searchAssistant?.enabled !== false && rawConfig.searchAssistantEnabled !== false,
         engines: searchEngines
       },
+      contextMenuDefaultPlatform: normalizePlatformId(rawConfig.contextMenuDefaultPlatform),
       promptOrder: normalizedPromptOrder,
       selectionMorePromptIds: normalizeMorePromptIds(rawConfig.selectionMorePromptIds, prompts)
     };
@@ -235,6 +242,42 @@
         </label>
       `;
     }).join('');
+  }
+
+  function renderContextMenuPlatformControl(config) {
+    const trigger = document.getElementById('settings-context-platform-trigger');
+    const menu = document.getElementById('settings-context-platform-menu');
+    if (!trigger || !menu) return;
+    const selectedId = normalizePlatformId(config.contextMenuDefaultPlatform);
+    const selectedPlatform = AI_PLATFORMS[selectedId] || AI_PLATFORMS.doubao;
+    trigger.dataset.platformId = selectedId;
+    trigger.innerHTML = `
+      <span class="settings-context-platform-value">
+        <span class="settings-context-platform-logo">
+          <img src="${chrome.runtime.getURL(selectedPlatform.icon)}" alt="">
+        </span>
+        <span class="settings-context-platform-name">${selectedPlatform.name}</span>
+      </span>
+      <span class="settings-context-platform-arrow">
+        <img src="${chrome.runtime.getURL('icons/platform-arrow-down.svg')}" alt="">
+      </span>
+    `;
+    menu.innerHTML = PLATFORM_ORDER.map((id) => {
+      const platform = AI_PLATFORMS[id];
+      const active = id === selectedId;
+      return `
+        <button type="button" class="settings-context-platform-option ${active ? 'is-active' : ''}" data-context-platform-option="${id}">
+          <span class="settings-context-platform-value">
+            <span class="settings-context-platform-logo">
+              <img src="${chrome.runtime.getURL(platform.icon)}" alt="">
+            </span>
+            <span class="settings-context-platform-name">${platform.name}</span>
+          </span>
+        </button>
+      `;
+    }).join('');
+    trigger.setAttribute('aria-expanded', 'false');
+    menu.hidden = true;
   }
 
   function renderEngineList(config) {
@@ -410,6 +453,7 @@
     document.getElementById('search-assistant-enabled').checked = config.searchAssistant.enabled;
     renderPlatformList(config);
     renderEngineList(config);
+    renderContextMenuPlatformControl(config);
     promptOrder = config.promptOrder.slice();
     renderPromptOrderLists();
     renderSelectionPreview();
@@ -424,6 +468,7 @@
       selectionDisplayMode: document.querySelector('input[name="selection-display-mode"]:checked')?.value || currentConfig.selectionDisplayMode,
       selectionToolbarEnabled: document.getElementById('selection-toolbar-enabled').checked,
       searchAssistantEnabled: document.getElementById('search-assistant-enabled').checked,
+      contextMenuDefaultPlatform: document.getElementById('settings-context-platform-trigger')?.dataset.platformId || currentConfig.contextMenuDefaultPlatform,
       platforms: Array.from(document.querySelectorAll('[data-platform-id]')).map((input) => ({
         id: input.dataset.platformId,
         enabled: input.checked
@@ -579,6 +624,33 @@
       if (event.target.matches('input[name="selection-display-mode"]')) {
         renderSelectionPreview();
         queueSave();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const trigger = event.target.closest('#settings-context-platform-trigger');
+      const option = event.target.closest('[data-context-platform-option]');
+      const menu = document.getElementById('settings-context-platform-menu');
+      if (trigger) {
+        if (!menu) return;
+        const expanded = trigger.getAttribute('aria-expanded') === 'true';
+        trigger.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        menu.hidden = expanded;
+        return;
+      }
+      if (option) {
+        const selectedId = normalizePlatformId(option.dataset.contextPlatformOption);
+        renderContextMenuPlatformControl({
+          ...currentConfig,
+          contextMenuDefaultPlatform: selectedId
+        });
+        queueSave();
+        return;
+      }
+      const triggerButton = document.getElementById('settings-context-platform-trigger');
+      if (triggerButton && menu && !triggerButton.contains(event.target) && !menu.contains(event.target)) {
+        triggerButton.setAttribute('aria-expanded', 'false');
+        menu.hidden = true;
       }
     });
 
