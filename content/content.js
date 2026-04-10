@@ -95,6 +95,7 @@
     placement: 'bottom'
   };
   let pendingFloatingContextAction = null;
+  const systemThemeQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   const SETTINGS_MENU_ITEMS = [
     { action: 'inline-assistants', label: 'AI 助手显示设置' },
     { tab: 'general', label: '系统设置' }
@@ -251,6 +252,12 @@
 
   function getPlatformAssetFile(platformKey) {
     return platformKey === 'zai' ? 'zhipuai.png' : `${platformKey}.png`;
+  }
+
+  function removeStaleFloatingUI() {
+    const container = document.getElementById('ai-sp-container');
+    if (!container || window.__aiSearchProToggleUI) return;
+    container.remove();
   }
 
   function applyPromptTemplate(template, text, variables = {}) {
@@ -433,9 +440,20 @@
 
   function getSelectionTheme() {
     const currentTheme = userConfig.theme === 'auto'
-      ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      ? (systemThemeQuery?.matches ? 'dark' : 'light')
       : userConfig.theme;
     return currentTheme === 'dark' ? 'dark' : 'light';
+  }
+
+  function subscribeSystemThemeChange(listener) {
+    if (!systemThemeQuery || typeof listener !== 'function') return;
+    if (typeof systemThemeQuery.addEventListener === 'function') {
+      systemThemeQuery.addEventListener('change', listener);
+      return;
+    }
+    if (typeof systemThemeQuery.addListener === 'function') {
+      systemThemeQuery.addListener(listener);
+    }
   }
 
   function isSelectionToolbarEnabled() {
@@ -701,6 +719,17 @@
           all: initial;
         }
         #ai-sp-selection-toolbar {
+          --ai-sp-selection-bg: #ffffff;
+          --ai-sp-selection-border: #ececef;
+          --ai-sp-selection-text: #111827;
+          --ai-sp-selection-subtext: #374151;
+          --ai-sp-selection-hover: #f2f2f2;
+          --ai-sp-selection-soft-hover: rgba(15, 45, 98, 0.06);
+          --ai-sp-selection-icon-bg: #dbeafe;
+          --ai-sp-selection-divider: #e5e7eb;
+          --ai-sp-selection-menu-bg: #ffffff;
+          --ai-sp-selection-disabled-bg: rgba(148, 163, 184, 0.14);
+          --ai-sp-selection-disabled-text: #9ca3af;
           position: fixed;
           left: 0;
           top: 0;
@@ -709,14 +738,27 @@
           gap: 8px;
           padding: 8px;
           border-radius: 12px;
-          background: #ffffff;
-          border: 1px solid #ececef;
+          background: var(--ai-sp-selection-bg);
+          border: 1px solid var(--ai-sp-selection-border);
           box-shadow: 0 8px 24px rgba(17, 24, 39, 0.14);
           pointer-events: auto;
           max-width: calc(100vw - 24px);
           box-sizing: border-box;
           font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-          color: #111827;
+          color: var(--ai-sp-selection-text);
+        }
+        #ai-sp-selection-toolbar[data-theme="dark"] {
+          --ai-sp-selection-bg: #111827;
+          --ai-sp-selection-border: #374151;
+          --ai-sp-selection-text: #f3f4f6;
+          --ai-sp-selection-subtext: #cbd5e1;
+          --ai-sp-selection-hover: #374151;
+          --ai-sp-selection-soft-hover: rgba(148, 163, 184, 0.18);
+          --ai-sp-selection-icon-bg: #243b53;
+          --ai-sp-selection-divider: rgba(255, 255, 255, 0.12);
+          --ai-sp-selection-menu-bg: #1f2937;
+          --ai-sp-selection-disabled-bg: rgba(148, 163, 184, 0.18);
+          --ai-sp-selection-disabled-text: #6b7280;
         }
         .ai-sp-selection-main {
           display: flex;
@@ -737,7 +779,7 @@
         .ai-sp-selection-divider {
           width: 1px;
           height: 12px;
-          background: #e5e7eb;
+          background: var(--ai-sp-selection-divider);
           flex: 0 0 auto;
         }
         .ai-sp-selection-chip {
@@ -757,7 +799,7 @@
           transition: background 0.16s ease, color 0.16s ease, opacity 0.16s ease;
           max-width: none;
           box-sizing: border-box;
-          color: #0f2d62;
+          color: var(--ai-sp-selection-text);
           background: transparent;
           font-weight: 500;
         }
@@ -768,7 +810,7 @@
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          color: #0f2d62;
+          color: var(--ai-sp-selection-text);
         }
         .ai-sp-selection-chip-icon svg {
           width: 20px;
@@ -781,6 +823,12 @@
           height: 100%;
           display: block;
           object-fit: contain;
+          filter: none;
+        }
+        #ai-sp-selection-toolbar[data-theme="dark"] .ai-sp-selection-chip-icon img,
+        #ai-sp-selection-toolbar[data-theme="dark"] .ai-sp-selection-action-icon img,
+        #ai-sp-selection-toolbar[data-theme="dark"] .ai-sp-selection-menu-item-icon img {
+          filter: brightness(0) invert(1);
         }
         .ai-sp-selection-chip-fallback-icon {
           font-size: 20px;
@@ -788,7 +836,7 @@
         }
         .ai-sp-selection-chip:hover,
         .ai-sp-selection-chip:focus-visible {
-          background: rgba(15, 45, 98, 0.06);
+          background: var(--ai-sp-selection-soft-hover);
         }
         .ai-sp-selection-chip.primary:hover,
         .ai-sp-selection-chip.primary:focus-visible,
@@ -802,7 +850,7 @@
         }
         .ai-sp-selection-action:hover,
         .ai-sp-selection-action:focus-visible {
-          background: #f2f2f2;
+          background: var(--ai-sp-selection-hover);
         }
         .ai-sp-selection-chip.primary {
           border-radius: 6px;
@@ -833,7 +881,7 @@
           padding: 6px;
         }
         .ai-sp-selection-chip.secondary.is-active {
-          background: #f2f2f2;
+          background: var(--ai-sp-selection-hover);
         }
         .ai-sp-selection-chip.more {
           min-width: 28px;
@@ -850,12 +898,12 @@
         .ai-sp-selection-chip.more:hover,
         .ai-sp-selection-chip.more:focus-visible,
         .ai-sp-selection-chip.more[data-open="true"] {
-          background: #f2f2f2;
+          background: var(--ai-sp-selection-hover);
         }
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip.primary:hover,
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip.primary:focus-visible,
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip.primary[data-open="true"] {
-          background: #f2f2f2;
+          background: var(--ai-sp-selection-hover);
         }
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-chip {
           width: 28px;
@@ -886,7 +934,7 @@
           width: 28px;
           height: 28px;
           border-radius: 8px;
-          background: #dbeafe;
+          background: var(--ai-sp-selection-icon-bg);
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -902,7 +950,7 @@
         .ai-sp-selection-chip-label.platform {
           font-size: 14px;
           line-height: 14px;
-          color: #1f2937;
+          color: var(--ai-sp-selection-text);
         }
         .ai-sp-selection-platform-arrow {
           width: 12px;
@@ -930,8 +978,8 @@
           gap: 8px;
           border-radius: 12px;
           box-shadow: 0 18px 40px rgba(17, 24, 39, 0.18);
-          background: #ffffff;
-          border: 1px solid #ececef;
+          background: var(--ai-sp-selection-menu-bg);
+          border: 1px solid var(--ai-sp-selection-border);
           box-sizing: border-box;
         }
         .ai-sp-selection-platform-menu[hidden] {
@@ -949,8 +997,8 @@
           padding: 6px;
           border: none;
           border-radius: 8px;
-          background: #ffffff;
-          color: #111827;
+          background: var(--ai-sp-selection-menu-bg);
+          color: var(--ai-sp-selection-text);
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -962,7 +1010,7 @@
         .ai-sp-selection-platform-item:hover,
         .ai-sp-selection-platform-item:focus-visible,
         .ai-sp-selection-platform-item.is-active {
-          background: #f2f2f2;
+          background: var(--ai-sp-selection-hover);
         }
         .ai-sp-selection-platform-item.is-active .ai-sp-selection-platform-item-name {
           color: #617bff;
@@ -1004,9 +1052,9 @@
           gap: 6px;
           padding: 4px;
           border-radius: 8px;
-          background: #ffffff;
+          background: transparent;
           border: none;
-          color: #282828;
+          color: var(--ai-sp-selection-text);
           cursor: pointer;
           flex: 0 0 auto;
         }
@@ -1016,7 +1064,7 @@
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          color: #09244b;
+          color: var(--ai-sp-selection-text);
           flex: 0 0 auto;
         }
         .ai-sp-selection-action-icon svg {
@@ -1028,7 +1076,7 @@
           font-size: 14px;
           line-height: 14px;
           font-weight: 400;
-          color: #282828;
+          color: var(--ai-sp-selection-text);
           white-space: nowrap;
         }
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action {
@@ -1043,12 +1091,12 @@
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action:hover,
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action:focus-visible,
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action:active {
-          background: #f2f2f2;
+          background: var(--ai-sp-selection-hover);
         }
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action.is-active,
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action.is-active:hover,
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action.is-active:focus-visible {
-          background: #f2f2f2;
+          background: var(--ai-sp-selection-hover);
         }
         #ai-sp-selection-toolbar[data-mode="icon"] .ai-sp-selection-action-icon {
           width: 20px;
@@ -1079,8 +1127,8 @@
           padding: 10px;
           border-radius: 14px;
           box-shadow: 0 18px 40px rgba(17, 24, 39, 0.18);
-          background: #ffffff;
-          border: 1px solid rgba(17, 24, 39, 0.08);
+          background: var(--ai-sp-selection-menu-bg);
+          border: 1px solid var(--ai-sp-selection-border);
         }
         .ai-sp-selection-more-menu[hidden] {
           display: none;
@@ -1099,15 +1147,15 @@
           cursor: pointer;
           font-size: 12px;
           line-height: 1.4;
-          background: #ffffff;
-          color: #111827;
+          background: var(--ai-sp-selection-menu-bg);
+          color: var(--ai-sp-selection-text);
           display: flex;
           align-items: flex-start;
           gap: 8px;
         }
         .ai-sp-selection-menu-item:hover,
         .ai-sp-selection-menu-item:focus-visible {
-          background: #f2f2f2;
+          background: var(--ai-sp-selection-hover);
         }
         .ai-sp-selection-menu-item-icon {
           width: 20px;
@@ -1116,7 +1164,7 @@
           align-items: center;
           justify-content: center;
           flex: 0 0 auto;
-          color: #09244b;
+          color: var(--ai-sp-selection-text);
         }
         .ai-sp-selection-menu-item-icon img,
         .ai-sp-selection-menu-item-icon svg {
@@ -1134,7 +1182,7 @@
         .ai-sp-selection-menu-item-title {
           font-size: 13px;
           line-height: 18px;
-          color: #111827;
+          color: var(--ai-sp-selection-text);
         }
         .ai-sp-selection-menu-item small {
           display: block;
@@ -1145,9 +1193,9 @@
           left: 0;
           top: 0;
           transform: translate(-50%, 0);
-          background: #ffffff;
-          color: #374151;
-          border: 1px solid #e5e7eb;
+          background: var(--ai-sp-selection-menu-bg);
+          color: var(--ai-sp-selection-subtext);
+          border: 1px solid var(--ai-sp-selection-border);
           border-radius: 6px;
           padding: 4px 8px;
           font-size: 12px;
@@ -1162,6 +1210,15 @@
         .ai-sp-selection-tooltip.is-visible {
           opacity: 1;
           visibility: visible;
+        }
+        .ai-sp-selection-chip:disabled,
+        .ai-sp-selection-action:disabled,
+        .ai-sp-selection-menu-item:disabled,
+        .ai-sp-selection-platform-item:disabled {
+          background: var(--ai-sp-selection-disabled-bg);
+          color: var(--ai-sp-selection-disabled-text);
+          cursor: not-allowed;
+          opacity: 0.7;
         }
         @media (max-width: 720px) {
           #ai-sp-selection-toolbar {
@@ -1491,10 +1548,45 @@
           if (container) container.remove();
           return;
         }
+        if (container) {
+          if (getSelectionTheme() === 'dark') {
+            container.setAttribute('data-ai-sp-theme', 'dark');
+          } else {
+            container.removeAttribute('data-ai-sp-theme');
+          }
+          const themeBtn = container.querySelector('#ai-sp-theme-btn');
+          if (themeBtn) {
+            const isDark = getSelectionTheme() === 'dark';
+            const sunIcon = themeBtn.querySelector('.ai-sp-icon-sun');
+            const moonIcon = themeBtn.querySelector('.ai-sp-icon-moon');
+            const themeTip = themeBtn.querySelector('.ai-sp-tooltip');
+            if (sunIcon) sunIcon.style.display = isDark ? 'block' : 'none';
+            if (moonIcon) moonIcon.style.display = isDark ? 'none' : 'block';
+            if (themeTip) themeTip.textContent = isDark ? '切换浅色模式' : '切换深色模式';
+          }
+          userConfig.platforms.filter(p => p.enabled).forEach((item) => {
+            const iframe = document.getElementById(`ai-sp-iframe-${item.id}`);
+            if (iframe && loadedPlatforms[item.id]) sendThemeToIframe(iframe);
+          });
+        }
         if (!container) {
           renderInitialUI();
         }
       }
+    });
+    subscribeSystemThemeChange(() => {
+      if (userConfig.theme !== 'auto') return;
+      const container = document.getElementById('ai-sp-container');
+      if (!container) return;
+      if (getSelectionTheme() === 'dark') {
+        container.setAttribute('data-ai-sp-theme', 'dark');
+      } else {
+        container.removeAttribute('data-ai-sp-theme');
+      }
+      userConfig.platforms.filter(p => p.enabled).forEach((item) => {
+        const iframe = document.getElementById(`ai-sp-iframe-${item.id}`);
+        if (iframe && loadedPlatforms[item.id]) sendThemeToIframe(iframe);
+      });
     });
     document.addEventListener('mousedown', (event) => {
       if (isSelectionToolbarEvent(event)) return;
@@ -1633,6 +1725,13 @@
     } catch (e) {}
   }
 
+  function sendThemeToIframe(iframe) {
+    if (!iframe || !iframe.contentWindow) return;
+    try {
+      iframe.contentWindow.postMessage({ type: 'AI_SEARCH_PRO_THEME_CHANGE', theme: getSelectionTheme() }, '*');
+    } catch (e) {}
+  }
+
   // 提取创建 UI 的核心逻辑，允许在配置加载前先渲染默认外壳
   async function renderInitialUI() {
     if (document.getElementById('ai-sp-container')) return;
@@ -1652,7 +1751,7 @@
     if (document.getElementById('ai-sp-container')) return;
 
     if (enabledPlatforms.length === 0) {
-        console.warn('OmniAI Search: No platforms enabled');
+        console.warn('AIChatbox: No platforms enabled');
         return;
       }
     
@@ -1973,10 +2072,10 @@
       });
     };
     
-    // 立即加载所有已启用的平台，实现统一并发发送
     enabledPlatforms.forEach(platformKey => {
-      loadedPlatforms[platformKey] = true;
-      platformUrls[platformKey] = buildPlatformUrl(platformKey, query);
+      const isCurrent = platformKey === currentPlatform;
+      loadedPlatforms[platformKey] = isCurrent;
+      platformUrls[platformKey] = isCurrent ? buildPlatformUrl(platformKey, query) : 'about:blank';
     });
 
     container.innerHTML = `
@@ -2139,6 +2238,7 @@
           if (iframe.src && iframe.src !== 'about:blank') {
             if (loading) loading.style.display = 'none';
             iframe.style.opacity = '1';
+            setTimeout(() => sendThemeToIframe(iframe), 120);
             if (!shouldUseHashBootstrap(platformKey)) {
               const currentQuery = getSearchQuery();
               if (currentQuery) {
@@ -2776,6 +2876,7 @@
                 if (newIframe.src && newIframe.src !== 'about:blank') {
                   if (newLoading) newLoading.style.display = 'none';
                   newIframe.style.opacity = '1';
+                  setTimeout(() => sendThemeToIframe(newIframe), 120);
                   if (!shouldUseHashBootstrap(platformKey)) {
                     const currentQuery = getSearchQuery();
                     if (currentQuery) {
@@ -3027,12 +3128,7 @@
         enabledPlatformsList.forEach(platformKey => {
           const iframe = document.getElementById(`ai-sp-iframe-${platformKey}`);
           if (iframe && loadedPlatforms[platformKey]) {
-            try {
-              iframe.contentWindow.postMessage({
-                type: 'AI_SEARCH_PRO_THEME_CHANGE',
-                theme: getSelectionTheme()
-              }, '*');
-            } catch(e) {}
+            sendThemeToIframe(iframe);
           }
         });
         
@@ -3341,10 +3437,28 @@
         window.__aiSearchProHideUI();
       }
       sendResponse({ status: 'ok' });
+    } else if (request.action === 'SHOW_FLOATING_UI') {
+      nativeSidebarOpen = false;
+      if (request.currentPlatform && AI_PLATFORMS[request.currentPlatform]) {
+        currentPlatform = request.currentPlatform;
+      }
+      const enabledIds = Array.isArray(request.enabledPlatforms)
+        ? request.enabledPlatforms.filter((id) => AI_PLATFORMS[id])
+        : userConfig.platforms.filter(p => p.enabled).map(p => p.id);
+      removeStaleFloatingUI();
+      if (window.__aiSearchProToggleUI) {
+        window.__aiSearchProToggleUI(true);
+      } else {
+        createUI(request.query || '', enabledIds.length ? enabledIds : userConfig.platforms.filter(p => p.enabled).map(p => p.id));
+      }
+      sendResponse({ status: 'ok' });
     } else if (request.action === 'TOGGLE_UI') {
       nativeSidebarOpen = false;
       const shouldOpenSidebar = request.openSidebar === true;
       const forceShow = request.forceShow === true;
+      if (request.currentPlatform && AI_PLATFORMS[request.currentPlatform]) {
+        currentPlatform = request.currentPlatform;
+      }
       if (window.__aiSearchProToggleUI) {
         if (shouldOpenSidebar) {
           window.__aiSearchProHideUI?.();
@@ -3353,6 +3467,7 @@
         }
       } else {
         if (!shouldOpenSidebar) {
+          removeStaleFloatingUI();
           createUI('', userConfig.platforms.filter(p => p.enabled).map(p => p.id));
         }
       }

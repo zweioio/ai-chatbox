@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "OmniAI Search",
+  "name": "AIChatbox",
   "version": "1.0.0",
   "description": "在搜索结果页、小窗和侧边栏联动主流 AI 助手，支持划词、右键 AI 处理、对比阅读与平台切换。",
   "permissions": [
@@ -35,7 +35,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "OmniAI Search",
+    "default_title": "AIChatbox",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

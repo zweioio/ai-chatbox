@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIChatbox</title>
+  <script src="../shared/page_bootstrap.js"></script>
+  <link rel="stylesheet" href="shell.css">
+</head>
+<body>
+  <div class="shell-page">
+    <div class="shell-topbar">
+      <div class="shell-topbar-inner">
+        <div class="shell-brand">
+          <img class="shell-brand-logo" src="../icons/icon48.png" alt="">
+          <span class="shell-brand-title">AIChatbox</span>
+        </div>
+        <div class="shell-nav">
+          <button id="shell-nav-settings" class="shell-nav-btn" type="button" data-view="settings">设置</button>
+          <button id="shell-nav-prompts" class="shell-nav-btn" type="button" data-view="prompts">提示词库</button>
+          <button id="shell-nav-memo" class="shell-nav-btn" type="button" data-view="memo">备忘录</button>
+          <button id="shell-nav-compare" class="shell-nav-btn" type="button">内容对比</button>
+        </div>
+      </div>
+    </div>
+    <div class="shell-content">
+      <iframe id="shell-frame-settings" class="shell-frame" title="设置"></iframe>
+      <iframe id="shell-frame-prompts" class="shell-frame" title="提示词库"></iframe>
+      <iframe id="shell-frame-memo" class="shell-frame" title="备忘录"></iframe>
+    </div>
+  </div>
+  <script src="shell.js"></script>
+</body>
+</html>

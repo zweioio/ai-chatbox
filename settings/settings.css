@@ -6,9 +6,58 @@
   --border-strong: #dfe4ea;
   --text: #101113;
   --text-secondary: #666666;
+  --hover: #f5f5f5;
+  --soft-bg: #f6f8fa;
+  --icon-bg: #dbeafe;
+  --divider: rgba(0, 0, 0, 0.1);
+  --placeholder: #9ca3af;
+  --disabled-bg: rgba(148, 163, 184, 0.12);
+  --disabled-text: #9ca3af;
   --blue: #3c82f5;
   --blue-soft: #eef4ff;
   --danger: #ff3434;
+  --shadow: none;
+}
+
+html {
+  background: var(--bg);
+}
+
+html[data-page-ready="0"] body {
+  opacity: 0;
+}
+
+html[data-embedded="1"] .settings-toolbar {
+  display: none;
+}
+
+html[data-embedded="1"] .settings-sidebar {
+  top: 24px;
+}
+
+html[data-embedded="1"] .settings-page,
+html[data-embedded="1"] .settings-shell,
+html[data-embedded="1"] .settings-main,
+html[data-embedded="1"] .settings-sections {
+  min-height: 100vh;
+}
+
+:root[data-ai-sp-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --card: #171a21;
+  --border: #2a2f3a;
+  --border-strong: #343b48;
+  --text: #f3f5f7;
+  --text-secondary: #a9b1bc;
+  --hover: #20252e;
+  --soft-bg: #20252e;
+  --icon-bg: #243b53;
+  --divider: rgba(255, 255, 255, 0.12);
+  --placeholder: #6b7280;
+  --disabled-bg: rgba(148, 163, 184, 0.18);
+  --disabled-text: #6b7280;
+  --blue-soft: rgba(60, 130, 245, 0.16);
   --shadow: none;
 }
 
@@ -35,6 +84,10 @@ body {
 button,
 input {
   font: inherit;
+}
+
+input::placeholder {
+  color: var(--placeholder);
 }
 
 button {
@@ -97,11 +150,11 @@ button {
 }
 
 .settings-nav-item:hover {
-  background: #f5f5f5;
+  background: var(--hover);
 }
 
 .settings-nav-item.is-active {
-  background: #f5f5f5;
+  background: var(--hover);
   color: var(--blue);
 }
 
@@ -276,7 +329,7 @@ button {
 .settings-card {
   border: 0;
   border-radius: 0;
-  background: var(--card);
+  background: transparent;
   box-shadow: none;
   padding: 0;
 }
@@ -584,7 +637,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #c4e5ff;
+  background: var(--icon-bg);
   flex: 0 0 auto;
 }
 
@@ -643,7 +696,96 @@ button {
 
 .settings-context-platform-option:hover,
 .settings-context-platform-option.is-active {
-  background: #f6f8fa;
+  background: var(--soft-bg);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-toolbar,
+:root[data-ai-sp-theme="dark"] .settings-preview-frame,
+:root[data-ai-sp-theme="dark"] .settings-choice-card,
+:root[data-ai-sp-theme="dark"] .settings-mode-card,
+:root[data-ai-sp-theme="dark"] .settings-chip-card,
+:root[data-ai-sp-theme="dark"] .settings-more-card,
+:root[data-ai-sp-theme="dark"] .settings-context-card,
+:root[data-ai-sp-theme="dark"] .settings-context-platform-menu,
+:root[data-ai-sp-theme="dark"] .settings-search-engine-item,
+:root[data-ai-sp-theme="dark"] .settings-selection-card {
+  background: var(--card);
+  border-color: var(--border);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-nav-item,
+:root[data-ai-sp-theme="dark"] .settings-card-title,
+:root[data-ai-sp-theme="dark"] .settings-section-title,
+:root[data-ai-sp-theme="dark"] .settings-choice-copy strong,
+:root[data-ai-sp-theme="dark"] .settings-mode-copy strong,
+:root[data-ai-sp-theme="dark"] .settings-context-title,
+:root[data-ai-sp-theme="dark"] .settings-context-copy-title,
+:root[data-ai-sp-theme="dark"] .settings-chip-name,
+:root[data-ai-sp-theme="dark"] .settings-more-title,
+:root[data-ai-sp-theme="dark"] .settings-context-platform-name {
+  color: var(--text);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-card-desc,
+:root[data-ai-sp-theme="dark"] .settings-section-desc,
+:root[data-ai-sp-theme="dark"] .settings-choice-copy span,
+:root[data-ai-sp-theme="dark"] .settings-mode-copy span,
+:root[data-ai-sp-theme="dark"] .settings-context-desc,
+:root[data-ai-sp-theme="dark"] .settings-context-copy-desc,
+:root[data-ai-sp-theme="dark"] .settings-search-engine-desc,
+:root[data-ai-sp-theme="dark"] .settings-selection-card-desc,
+:root[data-ai-sp-theme="dark"] .settings-selection-preview-label,
+:root[data-ai-sp-theme="dark"] .settings-more-desc {
+  color: var(--text-secondary);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-save-state.is-idle,
+:root[data-ai-sp-theme="dark"] .settings-save-state.is-saving,
+:root[data-ai-sp-theme="dark"] .settings-save-state.is-error,
+:root[data-ai-sp-theme="dark"] .settings-chip-check,
+:root[data-ai-sp-theme="dark"] .settings-selection-toggle,
+:root[data-ai-sp-theme="dark"] .settings-pill-button,
+:root[data-ai-sp-theme="dark"] .settings-prompt-item,
+:root[data-ai-sp-theme="dark"] .settings-context-platform-option {
+  border-color: var(--border);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-pill-button,
+:root[data-ai-sp-theme="dark"] .settings-selection-toggle,
+:root[data-ai-sp-theme="dark"] .settings-search-engine-item:hover,
+:root[data-ai-sp-theme="dark"] .settings-prompt-item:hover {
+  background: var(--soft-bg);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-choice-card:hover,
+:root[data-ai-sp-theme="dark"] .settings-mode-card:hover,
+:root[data-ai-sp-theme="dark"] .settings-chip-card:hover,
+:root[data-ai-sp-theme="dark"] .settings-more-card:hover {
+  border-color: var(--border-strong);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-choice-card:has(input:checked),
+:root[data-ai-sp-theme="dark"] .settings-mode-card:has(input:checked),
+:root[data-ai-sp-theme="dark"] .settings-chip-card:has(input:checked),
+:root[data-ai-sp-theme="dark"] .settings-more-card:has(input:checked) {
+  border-color: var(--blue);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-nav-icon img,
+:root[data-ai-sp-theme="dark"] .settings-choice-icon img,
+:root[data-ai-sp-theme="dark"] .settings-prompt-badge img,
+:root[data-ai-sp-theme="dark"] .settings-prompt-drag img,
+:root[data-ai-sp-theme="dark"] .settings-context-platform-arrow img {
+  filter: brightness(0) invert(1);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-nav-item.is-active .settings-nav-icon img {
+  filter: invert(51%) sepia(99%) saturate(1473%) hue-rotate(200deg) brightness(98%) contrast(95%);
+}
+
+:root[data-ai-sp-theme="dark"] .settings-chip-check {
+  border-color: var(--border-strong);
+  background: transparent;
 }
 
 .settings-chip-card:has(input:checked) .settings-chip-check::after {
@@ -664,10 +806,10 @@ button {
 }
 
 .settings-switch-card {
-  border: 1px solid #f1f2f3;
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
-  background: #ffffff;
+  background: var(--card);
 }
 
 .settings-switch-copy {
@@ -698,7 +840,7 @@ button {
   position: absolute;
   inset: 0;
   border-radius: 99px;
-  background: #d7dbe2;
+  background: var(--disabled-bg);
   transition: background 0.2s ease;
 }
 
@@ -710,7 +852,7 @@ button {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--card);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   transition: transform 0.2s ease;
 }
@@ -743,9 +885,9 @@ button {
   align-items: center;
   gap: 8px;
   padding: 8px;
-  border: 1px solid #ebedef;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--card);
   box-shadow: 0 8px 24px rgba(17, 24, 39, 0.14);
 }
 
@@ -773,8 +915,8 @@ button {
   border-radius: 8px;
   font-size: 12px;
   line-height: 1;
-  color: #282828;
-  background: #ffffff;
+  color: var(--text);
+  background: var(--card);
 }
 
 .selection-preview-platform {
@@ -788,7 +930,7 @@ button {
   height: 12px;
   justify-content: center;
   padding: 0;
-  color: #666666;
+  color: var(--text-secondary);
   flex: 0 0 auto;
 }
 
@@ -805,7 +947,7 @@ button {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: #dbeafe;
+  background: var(--icon-bg);
   overflow: hidden;
   flex: 0 0 auto;
 }
@@ -832,6 +974,11 @@ button {
   display: block;
 }
 
+:root[data-ai-sp-theme="dark"] .selection-preview-icon-wrap img,
+:root[data-ai-sp-theme="dark"] .selection-preview-platform-toggle img {
+  filter: brightness(0) invert(1);
+}
+
 .selection-preview-label {
   white-space: nowrap;
 }
@@ -850,7 +997,15 @@ button {
 .selection-preview-divider {
   width: 1px;
   height: 12px;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--divider);
+}
+
+.selection-preview-stage.is-disabled .selection-preview-bar,
+.settings-action-btn:disabled,
+.settings-link-btn:disabled {
+  background: var(--disabled-bg);
+  color: var(--disabled-text);
+  border-color: var(--border);
 }
 
 .selection-preview-stage[data-mode="icon"] .selection-preview-item,
@@ -892,7 +1047,7 @@ button {
   padding: 11px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--card);
   transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
@@ -911,7 +1066,7 @@ button {
   padding: 11px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--card);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -947,7 +1102,7 @@ button {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: #f1f2f3;
+  background: var(--soft-bg);
   overflow: hidden;
   flex: 0 0 auto;
   font-size: 15px;

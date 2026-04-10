@@ -1,5 +1,6 @@
 (() => {
   const STORAGE_KEY = 'aiSearchProPromptLibrary';
+  const CONFIG_STORAGE_KEY = 'aiSearchProConfig';
   const PREVIEW_TEXT = '请帮我整理这段内容的重点，并用简单清晰的方式输出。';
   const PREVIEW_CONTEXT = '这段内容来自一个网页段落，主题和 AI 搜索、插件体验优化有关。';
   const DEFAULT_PROMPTS = [
@@ -40,13 +41,32 @@
   let keyword = '';
   let dirty = false;
   let editingId = '';
+  const themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
   function makeId() {
     return `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
   function openPage(path) {
+    if (typeof window.__AI_SEARCH_PRO_NAVIGATE === 'function') {
+      window.__AI_SEARCH_PRO_NAVIGATE(path);
+      return;
+    }
     window.location.href = chrome.runtime.getURL(path);
+  }
+
+  function resolveTheme(theme) {
+    if (theme === 'auto') return themeMedia?.matches ? 'dark' : 'light';
+    return theme === 'dark' ? 'dark' : 'light';
+  }
+
+  function applyTheme(theme) {
+    const mode = resolveTheme(theme);
+    document.documentElement.setAttribute('data-ai-sp-theme', mode);
+    try {
+      sessionStorage.setItem('aiSearchProThemeSnapshot', mode);
+    } catch (e) {}
+    document.documentElement.setAttribute('data-page-ready', '1');
   }
 
   function toArray(payload) {
@@ -143,7 +163,8 @@
   }
 
   async function load() {
-    const data = await chrome.storage.local.get([STORAGE_KEY]);
+    const data = await chrome.storage.local.get([STORAGE_KEY, CONFIG_STORAGE_KEY]);
+    applyTheme(data?.[CONFIG_STORAGE_KEY]?.theme);
     prompts = normalize(data?.[STORAGE_KEY]);
     setDirty(false);
     render();
@@ -379,6 +400,17 @@
   openSettingsBtn?.addEventListener('click', () => openPage('settings/settings.html'));
   openMemoBtn?.addEventListener('click', () => openPage('favorites/favorites.html'));
   openCompareBtn?.addEventListener('click', () => openPage('compare/compare.html'));
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes[CONFIG_STORAGE_KEY]?.newValue) {
+      applyTheme(changes[CONFIG_STORAGE_KEY].newValue.theme);
+    }
+  });
+  themeMedia?.addEventListener?.('change', async () => {
+    const data = await chrome.storage.local.get([CONFIG_STORAGE_KEY]);
+    if (data?.[CONFIG_STORAGE_KEY]?.theme === 'auto') applyTheme('auto');
+  });
 
   document.addEventListener('click', (event) => {
     const variableBtn = event.target.closest('.pl-variable-chip');

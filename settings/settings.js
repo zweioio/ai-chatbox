@@ -84,6 +84,7 @@
   let isSaving = false;
   let observer = null;
   let dragState = null;
+  const themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
   function getDefaultPromptOrder() {
     return DEFAULT_PROMPTS.map((item) => item.id);
@@ -99,6 +100,21 @@
 
   function normalizePlatformId(id) {
     return AI_PLATFORMS[id] ? id : 'doubao';
+  }
+
+  function resolveThemeMode(theme) {
+    const normalized = normalizeTheme(theme);
+    if (normalized === 'auto') return themeMedia?.matches ? 'dark' : 'light';
+    return normalized;
+  }
+
+  function applyPageTheme(theme) {
+    const mode = resolveThemeMode(theme);
+    document.documentElement.setAttribute('data-ai-sp-theme', mode);
+    try {
+      sessionStorage.setItem('aiSearchProThemeSnapshot', mode);
+    } catch (e) {}
+    document.documentElement.setAttribute('data-page-ready', '1');
   }
 
   function normalizeToggleList(rawList, sourceMap) {
@@ -204,6 +220,10 @@
   }
 
   function openExtensionPage(pagePath) {
+    if (typeof window.__AI_SEARCH_PRO_NAVIGATE === 'function') {
+      window.__AI_SEARCH_PRO_NAVIGATE(pagePath);
+      return;
+    }
     window.location.href = chrome.runtime.getURL(pagePath);
   }
 
@@ -447,6 +467,7 @@
   }
 
   function syncForm(config) {
+    applyPageTheme(config.theme);
     document.querySelector(`input[name="theme"][value="${config.theme}"]`).checked = true;
     document.querySelector(`input[name="selection-display-mode"][value="${config.selectionToolbar.displayMode}"]`).checked = true;
     document.getElementById('selection-toolbar-enabled').checked = config.selectionToolbar.enabled;
@@ -536,6 +557,12 @@
         group: item.dataset.promptGroup
       };
       item.classList.add('is-dragging');
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', item.dataset.promptId || '');
+        const rect = item.getBoundingClientRect();
+        event.dataTransfer.setDragImage(item, rect.width / 2, rect.height / 2);
+      }
     });
 
     document.addEventListener('dragend', (event) => {
@@ -624,6 +651,12 @@
       if (event.target.matches('input[name="selection-display-mode"]')) {
         renderSelectionPreview();
         queueSave();
+        return;
+      }
+      if (event.target.matches('input[name="theme"]')) {
+        const selectedTheme = document.querySelector('input[name="theme"]:checked')?.value || currentConfig.theme;
+        applyPageTheme(selectedTheme);
+        queueSave();
       }
     });
 
@@ -679,6 +712,15 @@
     promptLibrary = normalizePromptLibrary(result?.[PROMPT_LIBRARY_STORAGE_KEY]);
     currentConfig = normalizeConfig(result?.[STORAGE_KEY], promptLibrary);
     syncForm(currentConfig);
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local' || !changes[STORAGE_KEY]?.newValue) return;
+      currentConfig = normalizeConfig(changes[STORAGE_KEY].newValue, promptLibrary);
+      syncForm(currentConfig);
+    });
+    themeMedia?.addEventListener?.('change', () => {
+      const selectedTheme = document.querySelector('input[name="theme"]:checked')?.value || currentConfig?.theme || 'light';
+      if (selectedTheme === 'auto') applyPageTheme('auto');
+    });
 
     const hashSection = window.location.hash.replace('#', '');
     const initialSection = document.getElementById(hashSection) ? hashSection : 'general';

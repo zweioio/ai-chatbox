@@ -1,7 +1,39 @@
+html {
+  color-scheme: light;
+  --fav-bg: #ffffff;
+  --fav-card: #ffffff;
+  --fav-border: #eceef0;
+  --fav-border-strong: #d1d5db;
+  --fav-text: #111827;
+  --fav-text-secondary: #6b7280;
+  --fav-hover: #f3f4f6;
+  background: var(--fav-bg);
+}
+
+html[data-ai-sp-theme="dark"] {
+  color-scheme: dark;
+  --fav-bg: #0f1115;
+  --fav-card: #171a21;
+  --fav-border: #2a2f3a;
+  --fav-border-strong: #343b48;
+  --fav-text: #f3f5f7;
+  --fav-text-secondary: #a9b1bc;
+  --fav-hover: #20252e;
+}
+
+html[data-page-ready="0"] body {
+  opacity: 0;
+}
+
+html[data-embedded="1"] .fav-topbar {
+  display: none;
+}
+
 body {
   margin: 0;
-  background: #ffffff;
+  background: var(--fav-bg);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--fav-text);
 }
 
 .fav-topbar {
@@ -10,8 +42,8 @@ body {
   z-index: 20;
   margin: 0 -24px;
   padding: 18px 24px 16px;
-  border-bottom: 1px solid #eceef0;
-  background: #ffffff;
+  border-bottom: 1px solid var(--fav-border);
+  background: var(--fav-card);
 }
 
 .fav-topbar-inner {
@@ -39,7 +71,7 @@ body {
   font-size: 14px;
   font-weight: 600;
   line-height: 1;
-  color: #101113;
+  color: var(--fav-text);
 }
 
 .fav-topbar-actions {
@@ -53,14 +85,14 @@ body {
   border: 0;
   background: transparent;
   padding: 0;
-  color: #666666;
+  color: var(--fav-text-secondary);
   font-size: 14px;
   line-height: 1.4;
   cursor: pointer;
 }
 
 .fav-topbar-btn:hover {
-  color: #101113;
+  color: var(--fav-text);
 }
 
 .fav-topbar-btn.is-active {
@@ -73,8 +105,8 @@ body {
   margin: 0 auto;
   padding: 24px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #111827;
-  background: #ffffff;
+  color: var(--fav-text);
+  background: var(--fav-bg);
 }
 
 .fav-head {
@@ -91,7 +123,7 @@ body {
   margin: 8px 0 0;
   font-size: 14px;
   line-height: 1.6;
-  color: #6b7280;
+  color: var(--fav-text-secondary);
 }
 
 .fav-list {
@@ -101,9 +133,9 @@ body {
 }
 
 .fav-item {
-  border: 1px solid #f1f2f3;
+  border: 1px solid var(--fav-border);
   border-radius: 12px;
-  background: #fff;
+  background: var(--fav-card);
   padding: 16px;
 }
 
@@ -120,7 +152,7 @@ body {
 }
 
 .fav-meta {
-  color: #6b7280;
+  color: var(--fav-text-secondary);
   font-size: 13px;
   margin-bottom: 12px;
 }
@@ -129,18 +161,23 @@ body {
   white-space: pre-wrap;
   font-size: 14px;
   line-height: 1.6;
-  color: #374151;
+  color: var(--fav-text);
   max-height: 180px;
   overflow: auto;
 }
 
 .fav-actions button {
   height: 34px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--fav-border-strong);
   border-radius: 10px;
-  background: #fff;
+  background: var(--fav-card);
   padding: 0 12px;
   cursor: pointer;
+  color: var(--fav-text);
+}
+
+.fav-actions button:hover {
+  background: var(--fav-hover);
 }
 
 @media (max-width: 640px) {

@@ -85,10 +85,7 @@
   const bodyEl = document.getElementById("cmp-body");
   const themeBtn = document.getElementById("cmp-theme-btn");
   const legendFilterEls = Array.from(document.querySelectorAll(".cmp-tag-filter"));
-  const keywordsEl = document.getElementById("cmp-keywords");
-  const keywordsSectionEl = document.getElementById("cmp-keywords-section");
-  const keywordsMoreEl = document.getElementById("cmp-keywords-more");
-  const keywordsToggleEl = document.getElementById("cmp-keywords-toggle");
+  const legendDescEl = document.getElementById("cmp-legend-desc");
   const diffListEl = document.getElementById("cmp-diff-list");
   const minPanes = 2;
   const maxPanes = 4;
@@ -104,18 +101,30 @@
   const pendingSends = new Map();
   const sendReadyRequests = new Map();
   const collapsedDiffCards = new Map();
+  const CONFIG_STORAGE_KEY = "aiSearchProConfig";
   const THEME_STORAGE_KEY = "cmp-theme";
   const SEND_READY_MAX_RETRIES = 8;
   const SEND_READY_RETRY_GAP = 450;
   const SEND_READY_STABLE_DELAY = 320;
-  let keywordsCollapsed = false;
-  let keywordsExpanded = false;
-  let activeKeyword = "";
   let activeDiffFilter = "all";
   let draggingPaneId = "";
   let paneOrderSeed = 1;
   let currentTheme = hash.get("theme") === "dark" ? "dark" : (localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light");
+  const themeMedia = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   const ENABLE_DRAG_REORDER = true;
+  const DIFF_SUMMARY_MAX_RETRIES = 4;
+  const DIFF_SUMMARY_DELAY = 1500;
+  const DIFF_SUMMARY_TIMEOUT = 5200;
+  const MIN_VALID_SUMMARY_LENGTH = 8;
+  const MAX_ANALYSIS_SENTENCES = 48;
+  const MAX_BASELINE_SENTENCES = 18;
+  const MAX_VISIBLE_INSIGHT_LINES = 8;
+  const FILTER_DESCRIPTIONS = {
+    all: "全部 AI 模型的洞察内容信息",
+    match: "多个模型都提到的共同点",
+    diff: "观点、表述或重点不同",
+    miss: "只有部分模型覆盖或其他没有提到的信息"
+  };
   const dragIconUrl = chrome.runtime.getURL("icons/drag.svg");
   const closeIconUrl = chrome.runtime.getURL("icons/close.svg");
   const webIconUrl = chrome.runtime.getURL("icons/web.svg");
@@ -126,13 +135,6 @@
 
   if (queryTitleEl) queryTitleEl.textContent = query || "内容对比";
   if (globalInputEl) globalInputEl.value = query;
-
-  defaultEnabled.forEach(key => {
-    const opt = document.createElement("option");
-    opt.value = key;
-    opt.textContent = AI_PLATFORMS[key].name;
-    selectEl.appendChild(opt);
-  });
 
   function buildIframeUrl(platformKey) {
     if (initialUrls[platformKey]) return initialUrls[platformKey];
@@ -237,6 +239,29 @@
     updateThemeButton();
   }
 
+  function resolveTheme(theme) {
+    if (theme === "auto") return themeMedia?.matches ? "dark" : "light";
+    return theme === "dark" ? "dark" : "light";
+  }
+
+  async function persistThemePreference(theme) {
+    const data = await chrome.storage.local.get([CONFIG_STORAGE_KEY]);
+    const config = data?.[CONFIG_STORAGE_KEY] || {};
+    await chrome.storage.local.set({
+      [CONFIG_STORAGE_KEY]: {
+        ...config,
+        theme
+      }
+    });
+  }
+
+  async function syncThemeFromConfig() {
+    const data = await chrome.storage.local.get([CONFIG_STORAGE_KEY]);
+    const configTheme = data?.[CONFIG_STORAGE_KEY]?.theme;
+    if (!configTheme) return;
+    applyTheme(resolveTheme(configTheme));
+  }
+
   function updateThemeButton() {
     if (!themeBtn) return;
     const sunIcon = themeBtn.querySelector(".cmp-theme-icon-sun");
@@ -248,18 +273,112 @@
     if (tooltip) tooltip.textContent = isDark ? "切换浅色模式" : "切换深色模式";
   }
 
-  function applyKeywordsCollapsedState() {
-    if (!keywordsSectionEl || !keywordsToggleEl) return;
-    keywordsSectionEl.classList.toggle("is-collapsed", keywordsCollapsed);
-    keywordsToggleEl.textContent = keywordsCollapsed ? "展开" : "折叠";
+  function setSelectMenuOpen(wrap, open) {
+    if (!wrap) return;
+    const trigger = wrap.querySelector(".cmp-select-trigger");
+    const menu = wrap.querySelector(".cmp-select-menu");
+    wrap.classList.toggle("is-open", open);
+    if (trigger) trigger.setAttribute("aria-expanded", open ? "true" : "false");
+    if (menu) menu.hidden = !open;
   }
 
-  function applyKeywordsExpandedState() {
-    if (!keywordsEl || !keywordsMoreEl) return;
-    const shouldTruncate = keywordsEl.dataset.overflow === "true" && !keywordsCollapsed;
-    keywordsEl.classList.toggle("is-truncated", shouldTruncate && !keywordsExpanded);
-    keywordsMoreEl.style.display = shouldTruncate ? "inline-block" : "none";
-    keywordsMoreEl.textContent = keywordsExpanded ? "收起" : "展开更多";
+  function closeAllSelectMenus(exceptWrap = null) {
+    document.querySelectorAll(".cmp-select-wrap.is-open").forEach((wrap) => {
+      if (exceptWrap && wrap === exceptWrap) return;
+      setSelectMenuOpen(wrap, false);
+    });
+  }
+
+  function ensureCustomSelect(select) {
+    if (!select) return null;
+    const wrap = select.closest(".cmp-select-wrap");
+    if (!wrap) return null;
+    let trigger = wrap.querySelector(".cmp-select-trigger");
+    if (!trigger) {
+      trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "cmp-select-trigger";
+      trigger.setAttribute("aria-haspopup", "menu");
+      trigger.setAttribute("aria-expanded", "false");
+      wrap.appendChild(trigger);
+      trigger.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (trigger.disabled) return;
+        const nextOpen = !wrap.classList.contains("is-open");
+        closeAllSelectMenus(nextOpen ? wrap : null);
+        setSelectMenuOpen(wrap, nextOpen);
+      });
+    }
+    let menu = wrap.querySelector(".cmp-select-menu");
+    if (!menu) {
+      menu = document.createElement("div");
+      menu.className = "cmp-select-menu";
+      menu.hidden = true;
+      wrap.appendChild(menu);
+      menu.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const option = event.target.closest(".cmp-select-option");
+        if (!option) return;
+        const value = option.dataset.value || "";
+        if (!value || select.value === value) {
+          setSelectMenuOpen(wrap, false);
+          return;
+        }
+        select.value = value;
+        refreshCustomSelect(select);
+        setSelectMenuOpen(wrap, false);
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    }
+    return { wrap, trigger, menu };
+  }
+
+  function refreshCustomSelect(select) {
+    const ui = ensureCustomSelect(select);
+    if (!ui) return;
+    const { wrap, trigger, menu } = ui;
+    const options = Array.from(select.options).map((option) => ({
+      value: option.value,
+      label: option.textContent || option.value
+    }));
+    const activeValue = select.value || options[0]?.value || "";
+    const activePlatform = AI_PLATFORMS[activeValue];
+    trigger.disabled = options.length === 0;
+    if (activePlatform) {
+      trigger.innerHTML = `
+        <span class="cmp-select-trigger-main">
+          <span class="cmp-select-trigger-icon"><img src="${getPlatformIconUrl(activeValue)}" alt="" /></span>
+          <span class="cmp-select-trigger-label">${activePlatform.name}</span>
+        </span>
+        <span class="cmp-select-trigger-arrow" aria-hidden="true">
+          <img src="${chrome.runtime.getURL("icons/platform-arrow-down.svg")}" alt="" />
+        </span>
+      `;
+    } else {
+      trigger.innerHTML = `
+        <span class="cmp-select-trigger-main">
+          <span class="cmp-select-trigger-label">选择 AI 助手</span>
+        </span>
+        <span class="cmp-select-trigger-arrow" aria-hidden="true">
+          <img src="${chrome.runtime.getURL("icons/platform-arrow-down.svg")}" alt="" />
+        </span>
+      `;
+    }
+    menu.innerHTML = options.map(({ value, label }) => `
+      <button type="button" class="cmp-select-option${value === activeValue ? " is-active" : ""}" data-value="${value}">
+        <span class="cmp-select-option-main">
+          <span class="cmp-select-option-icon"><img src="${getPlatformIconUrl(value)}" alt="" /></span>
+          <span class="cmp-select-option-label">${label}</span>
+        </span>
+        <span class="cmp-select-option-check"${value === activeValue ? "" : " hidden"}></span>
+      </button>
+    `).join("");
+    wrap.classList.toggle("is-disabled", options.length === 0);
+  }
+
+  function updateLegendDescription() {
+    if (!legendDescEl) return;
+    legendDescEl.textContent = FILTER_DESCRIPTIONS[activeDiffFilter] || FILTER_DESCRIPTIONS.all;
   }
 
   function normalizeText(text) {
@@ -270,6 +389,44 @@
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
+  function escapeHtml(text) {
+    return String(text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function shortenInsightText(text, max = 42) {
+    const normalized = normalizeText(text || "");
+    if (normalized.length <= max) return normalized;
+    return `${normalized.slice(0, max).trim()}…`;
+  }
+
+  function collectDistinctSentences(sentences, max = 2) {
+    const unique = [];
+    (sentences || []).forEach((sentence) => {
+      const normalized = normalizeText(sentence);
+      if (!normalized || normalized.length < 8) return;
+      const duplicated = unique.some((existing) => {
+        return existing === normalized
+          || existing.includes(normalized)
+          || normalized.includes(existing)
+          || similarity(existing, normalized) >= 0.72;
+      });
+      if (duplicated) return;
+      unique.push(normalized);
+    });
+    return unique.slice(0, max);
+  }
+
+  function buildInsightLine(label, text, className = "cmp-mark") {
+    const fullText = normalizeText(text || "");
+    if (!fullText) return "";
+    return `<span class="cmp-insight-line"><span class="cmp-insight-label">${escapeHtml(label)}：</span><span class="${className}" data-full-text="${escapeHtml(fullText)}">${escapeHtml(shortenInsightText(fullText))}</span></span>`;
+  }
+
   function tokenize(text) {
     const t = normalizeText(text).toLowerCase();
     const matches = t.match(/[\u4e00-\u9fa5]{2,}|[a-z]{3,}/g) || [];
@@ -277,12 +434,20 @@
   }
 
   function splitSentences(text) {
-    return (text || "")
+    const normalized = (text || "")
       .replace(/\r/g, "\n")
       .split(/(?<=[。！？!?;；\n])/)
       .map(v => normalizeText(v))
       .filter(v => v.length >= 8)
-      .slice(0, 24);
+      .slice(0, MAX_ANALYSIS_SENTENCES);
+    if (normalized.length) return normalized;
+    const compact = normalizeText(text || "");
+    if (!compact) return [];
+    const chunks = compact.match(/.{1,48}(?:[，,、：:；;。！？!?]|$)/g) || [];
+    return chunks
+      .map(v => normalizeText(v))
+      .filter(v => v.length >= 8)
+      .slice(0, MAX_ANALYSIS_SENTENCES);
   }
 
   function similarity(a, b) {
@@ -473,13 +638,13 @@
     });
     if (available.includes(current)) selectEl.value = current;
     else if (available[0]) selectEl.value = available[0];
+    refreshCustomSelect(selectEl);
     addBtn.disabled = grid.children.length >= maxPanes || available.length === 0;
     if (countEl) countEl.textContent = `${grid.children.length}/${maxPanes}`;
   }
 
   function updateRestoreSummary() {
     if (!restoreSummaryEl) return;
-    const all = getPaneNodes().length;
     let restored = 0;
     let fallback = 0;
     let restoring = 0;
@@ -488,7 +653,13 @@
       else if (v.status === "fallback") fallback += 1;
       else restoring += 1;
     });
-    restoreSummaryEl.textContent = `已继承 ${restored} · 回退 ${fallback} · 处理中 ${restoring} / ${all}`;
+    restoreSummaryEl.innerHTML = `
+      <span class="cmp-summary-item restored"><span class="cmp-status-dot"></span>已继承 ${restored}</span>
+      <span class="cmp-summary-sep">·</span>
+      <span class="cmp-summary-item fallback"><span class="cmp-status-dot"></span>回退 ${fallback}</span>
+      <span class="cmp-summary-sep">·</span>
+      <span class="cmp-summary-item restoring"><span class="cmp-status-dot"></span>处理中 ${restoring}</span>
+    `;
   }
 
   function setPaneState(pane, status, reason = "", source = "") {
@@ -499,10 +670,11 @@
     const retryBtn = pane.querySelector(".cmp-pane-retry");
     if (badge) {
       badge.className = `cmp-pane-status ${status}`;
-      if (status === "restored") badge.textContent = "已继承";
-      else if (status === "fallback") badge.textContent = "已回退";
-      else badge.textContent = "继承中";
+      const label = status === "restored" ? "已继承" : status === "fallback" ? "已回退" : "继承中";
+      badge.setAttribute("aria-label", label);
       badge.title = reason || "";
+      const tip = badge.querySelector(".cmp-tooltip");
+      if (tip) tip.textContent = label;
     }
     if (retryBtn) {
       retryBtn.style.display = status === "fallback" ? "inline-flex" : "none";
@@ -524,6 +696,7 @@
       });
       if (available.includes(current)) sel.value = current;
       else if (available[0]) sel.value = available[0];
+      refreshCustomSelect(sel);
       const pane = sel.closest(".cmp-pane");
       const iframe = pane && pane.querySelector(".cmp-iframe");
       if (iframe && sel.value !== current) iframe.src = buildIframeUrl(sel.value);
@@ -541,10 +714,12 @@
       if (!req) return;
       summaryRequests.delete(requestId);
       if (mode === "diff") {
-        if (!paneSummaries.get(paneId)) {
-          paneSummaries.set(paneId, "");
-          renderDiffHighlights();
+        if (!paneSummaries.get(paneId) && attempt < DIFF_SUMMARY_MAX_RETRIES) {
+          requestPaneSummary(pane, DIFF_SUMMARY_DELAY, "diff", attempt + 1, DIFF_SUMMARY_TIMEOUT);
+          return;
         }
+        if (!paneSummaries.get(paneId)) paneSummaries.set(paneId, "");
+        renderDiffHighlights();
       } else {
         handleRestoreTimeout(pane, req.attempt);
       }
@@ -588,7 +763,7 @@
     const sel = pane.querySelector(".cmp-pane-select");
     const platform = sel ? sel.value : "";
     const strategy = getPlatformStrategy(platform);
-    if (text.length >= 24) {
+    if (text.length >= MIN_VALID_SUMMARY_LENGTH) {
       paneSummaries.set(pane.dataset.paneId, text);
       setPaneState(pane, "restored", "", "url");
       renderDiffHighlights();
@@ -606,7 +781,7 @@
   function scheduleAllSummaryExtraction() {
     getPaneNodes().forEach(pane => {
       paneSummaries.set(pane.dataset.paneId, "");
-      requestPaneSummary(pane, 1200, "diff", 1, 4500);
+      requestPaneSummary(pane, DIFF_SUMMARY_DELAY, "diff", 1, DIFF_SUMMARY_TIMEOUT);
     });
     renderDiffHighlights();
   }
@@ -620,32 +795,13 @@
       const diffCount = diffCountBadge ? parseInt(diffCountBadge.textContent.replace(/[^0-9]/g, ''), 10) : 0;
       const missCountBadge = item.querySelector(".cmp-badge.miss");
       const missCount = missCountBadge ? parseInt(missCountBadge.textContent.replace(/[^0-9]/g, ''), 10) : 0;
-      const keywordHit = !activeKeyword || (item.dataset.keywords || "").split("|").includes(activeKeyword);
       const typeVisible =
         !activeDiffFilter ||
         activeDiffFilter === "all" ||
         (activeDiffFilter === "match" && matchCount > 0) ||
         (activeDiffFilter === "diff" && diffCount > 0) ||
         (activeDiffFilter === "miss" && missCount > 0);
-      item.style.display = keywordHit && typeVisible ? "flex" : "none";
-    });
-  }
-
-  if (keywordsToggleEl) {
-    keywordsToggleEl.addEventListener("click", () => {
-      keywordsCollapsed = !keywordsCollapsed;
-      applyKeywordsCollapsedState();
-      if (keywordsCollapsed) {
-        keywordsExpanded = false;
-      }
-      applyKeywordsExpandedState();
-    });
-  }
-
-  if (keywordsMoreEl) {
-    keywordsMoreEl.addEventListener("click", () => {
-      keywordsExpanded = !keywordsExpanded;
-      applyKeywordsExpandedState();
+      item.style.display = typeVisible ? "flex" : "none";
     });
   }
 
@@ -655,6 +811,7 @@
         const filter = btn.dataset.filter || "all";
         activeDiffFilter = filter;
         legendFilterEls.forEach(el => el.classList.toggle("is-active", el.dataset.filter === activeDiffFilter));
+        updateLegendDescription();
         handleDiffToggle();
       });
     });
@@ -677,61 +834,26 @@
       Array.from(new Set(d.tokens)).forEach(t => tokenFreq.set(t, (tokenFreq.get(t) || 0) + 1));
     });
 
-    const keywordPool = [];
-    data.forEach(d => {
-      keywordPool.push(...Array.from(new Set(d.tokens)).filter(t => tokenFreq.get(t) === 1).slice(0, 6));
-    });
-
-    const keywords = Array.from(new Set(keywordPool)).slice(0, 30);
-    if (activeKeyword && !keywords.includes(activeKeyword)) {
-      activeKeyword = "";
-    }
-    keywordsEl.innerHTML = "";
-    keywords.forEach(word => {
-      const item = document.createElement("span");
-      item.className = "cmp-keyword";
-      if (word === activeKeyword) item.classList.add("is-active");
-      item.textContent = word;
-      item.addEventListener("click", () => {
-        activeKeyword = activeKeyword === word ? "" : word;
-        renderDiffHighlights();
-      });
-      keywordsEl.appendChild(item);
-    });
-    if (keywordsSectionEl) {
-      keywordsSectionEl.classList.toggle("is-empty", keywords.length === 0);
-      if (keywords.length && keywords.length <= 8) {
-        keywordsCollapsed = false;
-      }
-    }
-    applyKeywordsCollapsedState();
-    requestAnimationFrame(() => {
-      if (!keywordsEl) return;
-      const overflow = keywordsEl.scrollHeight > 64;
-      keywordsEl.dataset.overflow = overflow ? "true" : "false";
-      if (!overflow) {
-        keywordsExpanded = false;
-      }
-      applyKeywordsExpandedState();
-    });
-
     const baseline = data[0];
-    const baselineSentences = baseline ? baseline.sentences.slice(0, 10) : [];
+    const baselineSentences = baseline ? baseline.sentences.slice(0, MAX_BASELINE_SENTENCES) : [];
     const cards = [];
     diffListEl.innerHTML = "";
     data.forEach((d, idx) => {
       const title = AI_PLATFORMS[d.platform] ? AI_PLATFORMS[d.platform].name : d.platform;
       const uniq = Array.from(new Set(d.tokens)).filter(t => tokenFreq.get(t) === 1).slice(0, 5);
-      const allTokens = Array.from(new Set(d.tokens));
       let matchCount = 0;
       let diffCount = 0;
       let missCount = 0;
       const lines = [];
+      const matchLines = [];
+      const diffLines = [];
+      const missLines = [];
+      const fallbackLines = d.sentences.length ? d.sentences : splitSentences(d.summary);
       if (idx === 0) {
-        baselineSentences.slice(0, 5).forEach(s => {
-          lines.push(`<span class="cmp-mark" style="cursor:pointer;" title="点击跳转到对应内容">${s}</span>`);
-          matchCount += 1;
-        });
+        const coreLines = collectDistinctSentences(baselineSentences, 2);
+        if (coreLines[0]) lines.push(buildInsightLine("核心观点", coreLines[0]));
+        if (coreLines[1]) lines.push(buildInsightLine("补充观点", coreLines[1]));
+        matchCount = coreLines.length;
       } else {
         baselineSentences.forEach((baseSentence) => {
           let bestScore = 0;
@@ -745,26 +867,33 @@
           });
           if (bestScore >= 0.6) {
             matchCount += 1;
-            lines.push(`<span class="cmp-mark" style="cursor:pointer;" title="点击跳转到对应内容">${bestSentence || baseSentence}</span>`);
+            matchLines.push(bestSentence || baseSentence);
           } else if (bestScore >= 0.25) {
             diffCount += 1;
-            lines.push(bestSentence || baseSentence);
+            diffLines.push(bestSentence || baseSentence);
           } else {
             missCount += 1;
+            missLines.push(baseSentence);
           }
         });
+        const commonLine = collectDistinctSentences(matchLines, 1)[0];
+        const diffLine = collectDistinctSentences(diffLines, 1)[0];
+        const missLine = collectDistinctSentences(missLines, 1)[0];
+        if (commonLine) lines.push(buildInsightLine("共同点", commonLine));
+        if (diffLine) lines.push(buildInsightLine("差异点", diffLine, "cmp-mark-diff"));
+        if (missLine) lines.push(buildInsightLine("未覆盖", missLine, "cmp-mark-focus"));
       }
-      let snippetHtml = lines.length ? lines.slice(0, 5).join(" ") : "尚未抓取到摘要文本，可点击刷新高亮重试。";
+      let snippetHtml = lines.length
+        ? lines.slice(0, MAX_VISIBLE_INSIGHT_LINES).join("")
+        : fallbackLines.length
+          ? collectDistinctSentences(fallbackLines, 2).map((line, lineIdx) => buildInsightLine(lineIdx === 0 ? "回答提炼" : "补充信息", line)).join("")
+          : "尚未抓取到摘要文本，可点击刷新回答重试";
       uniq.forEach(word => {
         const re = new RegExp(escapeRegExp(word), "ig");
         snippetHtml = snippetHtml.replace(re, (m) => `<span class="cmp-mark-diff" style="background: rgba(255, 99, 132, 0.2); padding: 0 2px; border-radius: 2px;">${m}</span>`);
       });
-      if (activeKeyword) {
-        const focusRe = new RegExp(escapeRegExp(activeKeyword), "ig");
-        snippetHtml = snippetHtml.replace(focusRe, (m) => `<span class="cmp-mark-focus">${m}</span>`);
-      }
       const uniqText = uniq.length ? `差异词：${uniq.join("、")}` : "差异词：暂无";
-      const score = diffCount * 2 + missCount + (activeKeyword && allTokens.includes(activeKeyword) ? 3 : 0);
+      const score = diffCount * 2 + missCount;
       cards.push({
         paneId: d.paneId,
         platformKey: d.platform,
@@ -774,7 +903,6 @@
         diffCount,
         missCount,
         snippetHtml,
-        allTokens,
         score,
         isBaseline: idx === 0
       });
@@ -789,7 +917,6 @@
       const iconUrl = cardData.platformKey ? getPlatformIconUrl(cardData.platformKey) : "";
       const card = document.createElement("div");
       card.className = "cmp-diff-item";
-      card.dataset.keywords = cardData.allTokens.join("|");
       card.dataset.platform = cardData.title;
       card.innerHTML = `
       <div class="cmp-diff-head" role="button" tabindex="0" aria-expanded="true">
@@ -812,7 +939,7 @@
         mark.style.cursor = 'pointer';
         mark.title = '点击跳转到对应内容';
         mark.addEventListener('click', () => {
-          const textToFind = mark.textContent;
+          const textToFind = mark.dataset.fullText || mark.textContent;
           const targetPane = document.querySelector(`.cmp-pane[data-pane-id="${cardData.paneId}"]`);
           if (targetPane) {
             const iframe = targetPane.querySelector('iframe');
@@ -908,13 +1035,22 @@
     const head = document.createElement("div");
     head.className = "cmp-pane-head";
 
+    const headMain = document.createElement("div");
+    headMain.className = "cmp-pane-head-main";
+
+    const headActions = document.createElement("div");
+    headActions.className = "cmp-pane-head-actions";
+
     const dragBtn = document.createElement("button");
     dragBtn.className = "cmp-pane-drag";
     dragBtn.draggable = ENABLE_DRAG_REORDER;
     dragBtn.innerHTML = `<img src="${dragIconUrl}" alt="drag" width="20" height="20" draggable="false" /><span class="cmp-tooltip">按住拖拽</span>`;
 
+    const selectWrap = document.createElement("span");
+    selectWrap.className = "cmp-select-wrap cmp-pane-select-wrap";
+
     const sel = document.createElement("select");
-    sel.className = "cmp-pane-select";
+    sel.className = "cmp-select cmp-pane-select";
     getAvailablePlatforms([finalPlatform]).forEach(key => {
       const opt = document.createElement("option");
       opt.value = key;
@@ -922,10 +1058,12 @@
       sel.appendChild(opt);
     });
     sel.value = finalPlatform;
+    selectWrap.appendChild(sel);
 
     const status = document.createElement("span");
     status.className = "cmp-pane-status restoring";
-    status.textContent = "继承中";
+    status.setAttribute("aria-label", "继承中");
+    status.innerHTML = `<span class="cmp-tooltip">继承中</span>`;
 
     const retryBtn = document.createElement("button");
     retryBtn.className = "cmp-pane-retry";
@@ -941,12 +1079,12 @@
     moveRightBtn.innerHTML = `<img src="${moveRightIconUrl}" alt="right" width="20" height="20" /><span class="cmp-tooltip">向右移动</span>`;
 
     const openBtn = document.createElement("button");
-    openBtn.className = "cmp-pane-btn";
+    openBtn.className = "cmp-pane-btn cmp-pane-btn-open";
     openBtn.innerHTML = `<img src="${webIconUrl}" alt="web" width="20" height="20" /><span class="cmp-tooltip">网页打开</span>`;
 
     const removeBtn = document.createElement("button");
-    removeBtn.className = "cmp-pane-btn";
-    removeBtn.innerHTML = `<img src="${closeIconUrl}" alt="close" width="20" height="20" /><span class="cmp-tooltip">关闭</span>`;
+    removeBtn.className = "cmp-pane-btn cmp-pane-btn-close";
+    removeBtn.innerHTML = `<img src="${closeIconUrl}" alt="close" width="20" height="20" /><span class="cmp-tooltip">关闭窗口</span>`;
 
     const iframe = document.createElement("iframe");
     iframe.className = "cmp-iframe";
@@ -1059,14 +1197,16 @@
       refreshGridCols();
     });
 
-    head.appendChild(dragBtn);
-    head.appendChild(sel);
-    head.appendChild(status);
-    head.appendChild(retryBtn);
-    head.appendChild(moveLeftBtn);
-    head.appendChild(moveRightBtn);
-    head.appendChild(openBtn);
-    head.appendChild(removeBtn);
+    headMain.appendChild(dragBtn);
+    headMain.appendChild(selectWrap);
+    headMain.appendChild(status);
+    headActions.appendChild(retryBtn);
+    headActions.appendChild(moveLeftBtn);
+    headActions.appendChild(moveRightBtn);
+    headActions.appendChild(openBtn);
+    headActions.appendChild(removeBtn);
+    head.appendChild(headMain);
+    head.appendChild(headActions);
     pane.appendChild(head);
     pane.appendChild(iframe);
     pane.style.order = String(paneOrderSeed++);
@@ -1084,6 +1224,14 @@
     if (!next) break;
     createPane(next);
   }
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest(".cmp-select-wrap")) return;
+    closeAllSelectMenus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAllSelectMenus();
+  });
 
   addBtn.addEventListener("click", () => {
     const value = selectEl.value || defaultEnabled[0];
@@ -1103,6 +1251,7 @@
   });
 
   syncPaneSelectors();
+  updateLegendDescription();
   updateRestoreSummary();
 
   if (refreshBtn) {
@@ -1124,8 +1273,10 @@
   }
 
   if (themeBtn) {
-    themeBtn.addEventListener("click", () => {
-      applyTheme(currentTheme === "dark" ? "light" : "dark");
+    themeBtn.addEventListener("click", async () => {
+      const nextTheme = currentTheme === "dark" ? "light" : "dark";
+      applyTheme(nextTheme);
+      await persistThemePreference(nextTheme);
     });
   }
 
@@ -1147,18 +1298,23 @@
     const updateSendState = () => {
       sendBtn.disabled = !normalizeText(globalInputEl.value);
     };
+    const clearSentInput = () => {
+      globalInputEl.value = "";
+      updateSendState();
+      globalInputEl.focus();
+    };
     updateSendState();
     globalInputEl.addEventListener("input", updateSendState);
     sendBtn.addEventListener("click", () => {
       sendToAllWindows(globalInputEl.value);
-      updateSendState();
+      clearSentInput();
     });
     globalInputEl.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       if (e.shiftKey) return;
       e.preventDefault();
       sendToAllWindows(globalInputEl.value);
-      updateSendState();
+      clearSentInput();
     });
   }
 
@@ -1211,10 +1367,23 @@
     if (req.mode === "restore") {
       handleRestoreResponse(pane, text, req.attempt);
     } else {
+      if (text.length < MIN_VALID_SUMMARY_LENGTH && req.attempt < DIFF_SUMMARY_MAX_RETRIES) {
+        requestPaneSummary(pane, DIFF_SUMMARY_DELAY, "diff", req.attempt + 1, DIFF_SUMMARY_TIMEOUT);
+        return;
+      }
       renderDiffHighlights();
     }
   });
 
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[CONFIG_STORAGE_KEY]?.newValue) return;
+    applyTheme(resolveTheme(changes[CONFIG_STORAGE_KEY].newValue.theme));
+  });
+  themeMedia?.addEventListener?.("change", async () => {
+    const data = await chrome.storage.local.get([CONFIG_STORAGE_KEY]);
+    if (data?.[CONFIG_STORAGE_KEY]?.theme === "auto") applyTheme(resolveTheme("auto"));
+  });
   scheduleAllSummaryExtraction();
   applyTheme(currentTheme);
+  syncThemeFromConfig();
 })();

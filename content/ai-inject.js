@@ -534,17 +534,28 @@
     const inserted = window.__AI_SEARCH_PRO_INJECT_TEXT(query, true);
     
     if (inserted) {
-      // 参考竞品的 submitDelay，对于某些平台需要更长的延迟
-      const submitDelay = (host.includes('qianwen') || host.includes('tongyi') || host.includes('deepseek')) ? 260 : 120;
-      
-      window.setTimeout(() => {
-        window.__AI_SEARCH_PRO_SUBMIT_CHAT(true);
-        
+      const { initialDelay, retryDelay, maxAttempts } = getSubmitRetryConfig();
+      const finishInjected = () => {
         hasInjected = true;
         sessionStorage.setItem(storageKey, query);
         window.parent.postMessage({ type: 'AI_SEARCH_PRO_LOADED' }, '*');
         publishLocation();
-      }, submitDelay);
+      };
+      const runSubmit = (attempt = 1) => {
+        const submitted = window.__AI_SEARCH_PRO_SUBMIT_CHAT(true);
+        if (submitted) {
+          finishInjected();
+          return;
+        }
+        if (attempt >= maxAttempts) {
+          finishInjected();
+          return;
+        }
+        window.setTimeout(() => runSubmit(attempt + 1), retryDelay);
+      };
+      window.setTimeout(() => {
+        runSubmit(1);
+      }, initialDelay);
     }
   }
 
@@ -653,36 +664,142 @@
 
   function extractSummaryText() {
     const host = window.location.hostname;
-    const selectors = [];
-    if (host.includes('chatgpt.com')) {
-      selectors.push('[data-message-author-role="assistant"]', 'main [class*="prose"]');
+    const MIN_SUMMARY_TEXT_LENGTH = 8;
+    const MAX_ASSISTANT_BLOCKS = 12;
+    const MAX_FALLBACK_BLOCKS = 8;
+    const MAX_SUMMARY_CHARACTERS = 8000;
+    const assistantSelectors = [];
+    const userSelectors = [];
+    const fallbackSelectors = [];
+    if (host.includes('doubao.com')) {
+      assistantSelectors.push('[data-testid*="message"] [data-testid*="assistant"]', '[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]');
+      userSelectors.push('[data-testid*="message"] [data-testid*="user"]', '[class*="user"]');
+      fallbackSelectors.push('main [class*="answer"]', 'main [class*="markdown"]');
+    } else if (host.includes('chatgpt.com')) {
+      assistantSelectors.push('[data-message-author-role="assistant"]', 'main [class*="prose"]');
+      userSelectors.push('[data-message-author-role="user"]');
+      fallbackSelectors.push('main article');
     } else if (host.includes('deepseek.com')) {
-      selectors.push('[class*="assistant"]', '[class*="markdown"]');
+      assistantSelectors.push('[class*="assistant"]', '[class*="markdown"]', '[class*="answer"]');
+      userSelectors.push('[class*="user"]');
+      fallbackSelectors.push('main article', 'main [class*="markdown"]');
     } else if (host.includes('kimi.moonshot.cn') || host.includes('kimi.com')) {
-      selectors.push('[data-role="assistant"]', '[class*="assistant"]', '[class*="markdown"]');
-    } else if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com') || host.includes('yuanbao.tencent.com')) {
-      selectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]');
+      assistantSelectors.push('[data-role="assistant"]', '[class*="assistant"]', '[class*="markdown"]');
+      userSelectors.push('[data-role="user"]', '[class*="user"]');
+      fallbackSelectors.push('main article', 'main [class*="markdown"]');
+    } else if (host.includes('qianwen.com') || host.includes('tongyi.aliyun.com')) {
+      assistantSelectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]');
+      userSelectors.push('[class*="user"]', '[data-role="user"]');
+      fallbackSelectors.push('main article', 'main [class*="answer"]');
+    } else if (host.includes('yuanbao.tencent.com')) {
+      assistantSelectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]');
+      userSelectors.push('[class*="user"]', '[data-role="user"]');
+      fallbackSelectors.push('main article');
+    } else if (host.includes('claude.ai')) {
+      assistantSelectors.push('[data-is-streaming]', '[class*="font-claude-message"]', '[class*="assistant"]', 'main article');
+      userSelectors.push('[class*="user"]', '[data-testid*="user"]');
+      fallbackSelectors.push('main article');
+    } else if (host.includes('gemini.google.com')) {
+      assistantSelectors.push('[data-response-id]', '[class*="model-response"]', '[class*="response-container"]', 'main article');
+      userSelectors.push('[class*="query-text"]', '[class*="user-query"]', '[class*="user"]');
+      fallbackSelectors.push('main article');
+    } else if (host.includes('perplexity.ai')) {
+      assistantSelectors.push('[class*="prose"]', '[class*="answer"]', 'main article');
+      userSelectors.push('textarea', '[class*="user"]');
+      fallbackSelectors.push('main article');
+    } else if (host.includes('copilot.microsoft.com')) {
+      assistantSelectors.push('[class*="ac-textBlock"]', '[class*="message-content"]', 'main article');
+      userSelectors.push('[class*="user"]', '[data-content="user"]');
+      fallbackSelectors.push('main article');
+    } else if (host.includes('grok.com')) {
+      assistantSelectors.push('[class*="assistant"]', '[class*="response"]', 'main article');
+      userSelectors.push('[class*="user"]');
+      fallbackSelectors.push('main article');
+    } else if (host.includes('chatglm.cn')) {
+      assistantSelectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]');
+      userSelectors.push('[class*="user"]');
+      fallbackSelectors.push('main article');
+    } else if (host.includes('z.ai')) {
+      assistantSelectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]', 'main article');
+      userSelectors.push('[class*="user"]');
+      fallbackSelectors.push('main article');
     } else {
-      selectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]', 'article', 'main');
+      assistantSelectors.push('[class*="assistant"]', '[class*="answer"]', '[class*="markdown"]', 'main article');
+      userSelectors.push('[class*="user"]');
+      fallbackSelectors.push('main article');
     }
 
     let parts = [];
-    selectors.forEach(sel => {
+    const ignoredLinePattern = /^(继续追问|猜你想问|相关问题|为你推荐|推荐问题|延伸阅读|换个问法|重新生成|复制|分享|点赞|点踩|搜索|上传附件|选择文件|全部内容由AI生成|内容由AI生成|仅供参考|展开更多|收起|发送|停止生成|深度思考|联网搜索)([:：].*)?$/i;
+    const ignoredBlockPattern = /(猜你想问|相关问题|为你推荐|推荐问题|延伸阅读|换个问法|相关搜索|推荐阅读)/i;
+    const ignoredTailPattern = /\s*(猜你想问|相关问题|为你推荐|推荐问题|延伸阅读|换个问法|相关搜索|推荐阅读)([:：].*)?[\s\S]*$/i;
+    const cleanSummaryBlock = (text) => {
+      const raw = String(text || "")
+        .replace(/\r/g, "\n")
+        .replace(/\u00a0/g, " ")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+      if (!raw) return "";
+      const trimmed = raw.replace(ignoredTailPattern, "").trim();
+      const source = trimmed || raw;
+      const lines = source
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .filter((line) => !ignoredLinePattern.test(line))
+        .filter((line) => !ignoredBlockPattern.test(line))
+        .filter((line) => line.length >= 4);
+      return normalizeSummaryText(lines.join("\n"));
+    };
+
+    const hasUserContent = userSelectors.some((sel) => {
       try {
-        document.querySelectorAll(sel).forEach(el => {
+        return Array.from(document.querySelectorAll(sel)).some((el) => isVisibleElement(el) && normalizeSummaryText(el.innerText || '').length >= 2);
+      } catch (e) {
+        return false;
+      }
+    });
+
+    let assistantHits = 0;
+    let assistantCandidateCount = 0;
+    assistantSelectors.forEach(sel => {
+      try {
+        Array.from(document.querySelectorAll(sel)).slice(-MAX_ASSISTANT_BLOCKS).forEach(el => {
           if (!isVisibleElement(el)) return;
-          const t = normalizeSummaryText(el.innerText || '');
-          if (t.length >= 20) parts.push(t);
+          assistantCandidateCount += 1;
+          const t = cleanSummaryBlock(el.innerText || '');
+          if (t.length >= MIN_SUMMARY_TEXT_LENGTH) {
+            parts.push(t);
+            assistantHits += 1;
+          }
         });
       } catch (e) {}
     });
 
-    if (!parts.length) {
-      const bodyText = normalizeSummaryText(document.body ? document.body.innerText : '');
-      return bodyText.slice(0, 2200);
+    if (!parts.length && (hasUserContent || assistantCandidateCount > 0)) {
+      const fallbackQuery = Array.from(new Set([
+        ...fallbackSelectors,
+        'main [class*="prose"]',
+        'main [class*="markdown"]',
+        'article [class*="prose"]',
+        'article [class*="markdown"]',
+        '[role="main"] article'
+      ])).join(', ');
+      const fallbackBlocks = Array.from(document.querySelectorAll(fallbackQuery))
+        .filter(isVisibleElement)
+        .slice(-MAX_FALLBACK_BLOCKS)
+        .map((el) => cleanSummaryBlock(el.innerText || ''))
+        .filter((text) => text.length >= MIN_SUMMARY_TEXT_LENGTH);
+      if (fallbackBlocks.length) {
+        parts = fallbackBlocks;
+      }
     }
 
-    return normalizeSummaryText(parts.slice(-8).join('\n')).slice(0, 2200);
+    if (!hasUserContent && !assistantHits) return '';
+
+    const dedupedParts = Array.from(new Set(parts.map((part) => normalizeSummaryText(part)).filter(Boolean)));
+    return normalizeSummaryText(dedupedParts.slice(-MAX_ASSISTANT_BLOCKS).join('\n')).slice(0, MAX_SUMMARY_CHARACTERS);
   }
   
   window.addEventListener("message", (event) => {

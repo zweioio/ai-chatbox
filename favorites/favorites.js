@@ -1,11 +1,17 @@
 (() => {
   const STORAGE_KEY = 'aiSearchProFavorites';
+  const CONFIG_STORAGE_KEY = 'aiSearchProConfig';
   const listEl = document.getElementById('fav-list');
   const openSettingsBtn = document.getElementById('fav-open-settings-btn');
   const openLibraryBtn = document.getElementById('fav-open-library-btn');
   const openCompareBtn = document.getElementById('fav-open-compare-btn');
+  const themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
   function openPage(path) {
+    if (typeof window.__AI_SEARCH_PRO_NAVIGATE === 'function') {
+      window.__AI_SEARCH_PRO_NAVIGATE(path);
+      return;
+    }
     window.location.href = chrome.runtime.getURL(path);
   }
 
@@ -21,8 +27,23 @@
     URL.revokeObjectURL(url);
   }
 
+  function resolveTheme(theme) {
+    if (theme === 'auto') return themeMedia?.matches ? 'dark' : 'light';
+    return theme === 'dark' ? 'dark' : 'light';
+  }
+
+  function applyTheme(theme) {
+    const mode = resolveTheme(theme);
+    document.documentElement.setAttribute('data-ai-sp-theme', mode);
+    try {
+      sessionStorage.setItem('aiSearchProThemeSnapshot', mode);
+    } catch (e) {}
+    document.documentElement.setAttribute('data-page-ready', '1');
+  }
+
   async function load() {
-    const data = await chrome.storage.local.get([STORAGE_KEY]);
+    const data = await chrome.storage.local.get([STORAGE_KEY, CONFIG_STORAGE_KEY]);
+    applyTheme(data?.[CONFIG_STORAGE_KEY]?.theme);
     const list = Array.isArray(data?.[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
     render(list);
   }
@@ -80,6 +101,20 @@
   openSettingsBtn?.addEventListener('click', () => openPage('settings/settings.html'));
   openLibraryBtn?.addEventListener('click', () => openPage('prompt-library/prompt_library.html'));
   openCompareBtn?.addEventListener('click', () => openPage('compare/compare.html'));
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes[CONFIG_STORAGE_KEY]?.newValue) {
+      applyTheme(changes[CONFIG_STORAGE_KEY].newValue.theme);
+    }
+    if (changes[STORAGE_KEY]?.newValue) {
+      render(Array.isArray(changes[STORAGE_KEY].newValue) ? changes[STORAGE_KEY].newValue : []);
+    }
+  });
+  themeMedia?.addEventListener?.('change', async () => {
+    const data = await chrome.storage.local.get([CONFIG_STORAGE_KEY]);
+    if (data?.[CONFIG_STORAGE_KEY]?.theme === 'auto') applyTheme('auto');
+  });
 
   load();
 })();

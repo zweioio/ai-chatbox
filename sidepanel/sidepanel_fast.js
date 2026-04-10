@@ -66,6 +66,7 @@ const SETTINGS_MENU_ITEMS = [
   { action: 'inline-assistants', label: 'AI 助手显示设置' },
   { tab: 'general', label: '系统设置' }
 ];
+const systemThemeQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
 function sendRuntimeMessage(message) {
   return new Promise((resolve) => {
@@ -545,7 +546,7 @@ function queueDeferredContextSend(platformKey, text, requestId = makeSendRequest
 
 function setTheme(theme) {
   const themeMode = theme === 'auto'
-    ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    ? (systemThemeQuery?.matches ? 'dark' : 'light')
     : (theme === 'dark' ? 'dark' : 'light');
   currentTheme = themeMode;
   if (currentTheme === 'dark') {
@@ -554,6 +555,25 @@ function setTheme(theme) {
     document.documentElement.removeAttribute('data-ai-sp-theme');
   }
   updateThemeButtonUI();
+}
+
+function subscribeSystemThemeChange(listener) {
+  if (!systemThemeQuery || typeof listener !== 'function') return;
+  if (typeof systemThemeQuery.addEventListener === 'function') {
+    systemThemeQuery.addEventListener('change', listener);
+    return;
+  }
+  if (typeof systemThemeQuery.addListener === 'function') {
+    systemThemeQuery.addListener(listener);
+  }
+}
+
+function sendThemeToIframe(platformKey) {
+  const iframe = document.getElementById(`ai-sp-sidepanel-iframe-${platformKey}`);
+  if (!iframe?.contentWindow) return;
+  try {
+    iframe.contentWindow.postMessage({ type: 'AI_SEARCH_PRO_THEME_CHANGE', theme: currentTheme }, '*');
+  } catch (e) {}
 }
 
 function updateThemeButtonUI() {
@@ -843,6 +863,7 @@ function ensureIframeLoaded(platformKey, queryText) {
   iframe.addEventListener('load', () => {
     iframe.style.opacity = '1';
     if (loading) loading.style.display = 'none';
+    setTimeout(() => sendThemeToIframe(platformKey), 120);
     const timer = loadTimeouts.get(platformKey);
     if (timer) {
       clearTimeout(timer);
@@ -1135,6 +1156,9 @@ function bindEvents() {
   document.getElementById('ai-sp-theme-btn')?.addEventListener('click', async () => {
     setTheme(currentTheme === 'dark' ? 'light' : 'dark');
     userConfig.theme = currentTheme;
+    enabledPlatforms.forEach((platformKey) => {
+      if (loadedIds.has(platformKey)) sendThemeToIframe(platformKey);
+    });
     await chrome.storage.local.set({ aiSearchProConfig: userConfig });
     syncSidebarState();
   });
@@ -1322,6 +1346,16 @@ function init(initialQueuedAction = null) {
       consumeQueuedContextAction(changes[SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY].newValue).catch(() => {});
       clearQueuedContextAction().catch(() => {});
     }
+    if (areaName === 'local' && changes[CONFIG_STORAGE_KEY]?.newValue) {
+      const cfg = changes[CONFIG_STORAGE_KEY].newValue || {};
+      if (cfg.theme) {
+        userConfig.theme = cfg.theme === 'auto' ? 'auto' : (cfg.theme === 'dark' ? 'dark' : 'light');
+        setTheme(userConfig.theme);
+        enabledPlatforms.forEach((platformKey) => {
+          if (loadedIds.has(platformKey)) sendThemeToIframe(platformKey);
+        });
+      }
+    }
   });
   setActivePlatform(currentPlatform);
   if (initialQueuedAction) {
@@ -1397,4 +1431,11 @@ function init(initialQueuedAction = null) {
   }
   init(queuedAction);
   updateScrollButtons();
+  subscribeSystemThemeChange(() => {
+    if (userConfig.theme !== 'auto') return;
+    setTheme('auto');
+    enabledPlatforms.forEach((platformKey) => {
+      if (loadedIds.has(platformKey)) sendThemeToIframe(platformKey);
+    });
+  });
 })();

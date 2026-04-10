@@ -134,7 +134,7 @@ html, body {
 .ai-sp-platforms-scroll-btn:hover img,
 .ai-sp-platforms-scroll-btn:active img {
   opacity: 1;
-  filter: invert(30%) sepia(63%) saturate(1825%) hue-rotate(221deg) brightness(94%) contrast(96%);
+  filter: none;
 }
 
 .ai-sp-platforms-scroll-btn.is-disabled:hover img,

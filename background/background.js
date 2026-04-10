@@ -201,23 +201,39 @@ async function closeNativeSidePanel(tabId, windowId) {
       resolvedWindowId = tab?.windowId;
     } catch (e) {}
   }
-  try {
-    if (typeof resolvedWindowId === "number") {
+  let closed = false;
+  if (typeof resolvedWindowId === "number") {
+    try {
       await chrome.sidePanel.close({ windowId: resolvedWindowId });
-      if (typeof tabId === "number") {
-        updateSidePanelState(tabId, { nativeSidebarOpen: false });
-        await broadcastSidePanelState(tabId);
-      }
-      return { ok: true };
-    }
-    if (typeof tabId === "number") {
+      closed = true;
+    } catch (e) {}
+  }
+  if (typeof tabId === "number") {
+    try {
       await chrome.sidePanel.close({ tabId });
-      updateSidePanelState(tabId, { nativeSidebarOpen: false });
-      await broadcastSidePanelState(tabId);
-      return { ok: true };
-    }
-  } catch (e) {}
-  return { ok: false };
+      closed = true;
+    } catch (e) {}
+  }
+  if (closed && typeof tabId === "number") {
+    updateSidePanelState(tabId, { nativeSidebarOpen: false });
+    await broadcastSidePanelState(tabId);
+  }
+  return { ok: closed };
+}
+
+function resolveExtensionPagePath(pagePath) {
+  const normalized = String(pagePath || "").replace(/^\/+/, "");
+  const [basePath, hashPart = ""] = normalized.split("#");
+  if (basePath === "settings/settings.html") {
+    return `shell/shell.html#settings${hashPart ? `/${hashPart}` : ""}`;
+  }
+  if (basePath === "prompt-library/prompt_library.html") {
+    return "shell/shell.html#prompts";
+  }
+  if (basePath === "favorites/favorites.html") {
+    return "shell/shell.html#memo";
+  }
+  return normalized;
 }
 
 // 监听扩展安装事件
@@ -405,7 +421,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       await broadcastSidePanelState(tabId);
       await closeNativeSidePanel(tabId, activeTab?.windowId);
       await ensureContentScript(tabId);
-      await sendMessageToTab(tabId, { action: "TOGGLE_UI", openSidebar: false, forceShow: true });
+      await sendMessageToTab(tabId, {
+        action: "SHOW_FLOATING_UI",
+        query: nextState.query || "",
+        currentPlatform: nextState.currentPlatform || "",
+        enabledPlatforms: Array.isArray(nextState.enabledPlatforms) ? nextState.enabledPlatforms : [],
+        forceShow: true
+      });
       sendResponse({ ok: true });
       return;
     }
@@ -424,7 +446,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: false });
         return;
       }
-      await chrome.tabs.create({ url: chrome.runtime.getURL(pagePath) });
+      await chrome.tabs.create({ url: chrome.runtime.getURL(resolveExtensionPagePath(pagePath)) });
       sendResponse({ ok: true });
       return;
     }
