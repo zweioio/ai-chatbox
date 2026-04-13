@@ -30,16 +30,25 @@
     "https://chat.z.ai/*"
   ],
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16": "icons/aichatbox.png",
+    "48": "icons/aichatbox.png",
+    "128": "icons/aichatbox.png"
   },
   "action": {
     "default_title": "AIChatbox",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "icons/aichatbox.png",
+      "48": "icons/aichatbox.png",
+      "128": "icons/aichatbox.png"
+    }
+  },
+  "commands": {
+    "toggle-ai-search-pro": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+M",
+        "mac": "Command+Shift+M"
+      },
+      "description": "打开或关闭 AIChatbox"
     }
   },
   "background": {

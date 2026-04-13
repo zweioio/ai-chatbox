@@ -35,6 +35,7 @@
     selectionDisplayMode: DEFAULT_SELECTION_DISPLAY_MODE,
     selectionToolbarEnabled: true,
     searchAssistantEnabled: true,
+    searchAssistantPlatform: 'doubao',
     searchEngines: Object.keys(SEARCH_ENGINES).map((id) => ({
       id,
       enabled: true
@@ -65,10 +66,11 @@
     { id: 'prompt-summary', title: '总结', icon: '📝', template: '请总结下面这段内容的核心要点：\n\n{{text}}', enabled: true },
     { id: 'prompt-translate', title: '翻译', icon: '🌐', template: '请把下面内容翻译成中文，并保留原意：\n\n{{text}}', enabled: true },
     { id: 'prompt-polish', title: '润色', icon: '✨', template: '请润色下面这段内容，让表达更清晰自然：\n\n{{text}}', enabled: true },
-    { id: 'prompt-review', title: '代码审查', icon: '🔍', template: '请从可读性、潜在问题和改进建议三个方面审查下面这段代码：\n\n{{text}}', enabled: false },
-    { id: 'prompt-rewrite', title: '改写', icon: '✍️', template: '请在不改变原意的前提下改写下面内容，让表达更自然：\n\n{{text}}', enabled: false },
-    { id: 'prompt-article', title: '文章提炼', icon: '📚', template: '请结合以下上下文提炼关键信息，并给出结构化总结：\n\n选中内容：\n{{text}}\n\n上下文：\n{{context}}\n\n页面标题：{{page}}\n页面地址：{{url}}', enabled: false }
+    { id: 'prompt-rewrite', title: '改写', icon: '✍️', template: '请在不改变原意的前提下改写下面内容，让表达更自然：\n\n{{text}}', enabled: true },
+    { id: 'prompt-article', title: '文章提炼', icon: '📚', template: '请结合以下上下文提炼关键信息，并给出结构化总结：\n\n选中内容：\n{{text}}\n\n上下文：\n{{context}}\n\n页面标题：{{page}}\n页面地址：{{url}}', enabled: false },
+    { id: 'prompt-review', title: '代码审查', icon: '🔍', template: '请从可读性、潜在问题和改进建议三个方面审查下面这段代码：\n\n{{text}}', enabled: false }
   ];
+  const LOCKED_PROMPT_IDS = ['prompt-explain', 'prompt-summary', 'prompt-translate', 'prompt-polish', 'prompt-rewrite'];
   const SELECTION_PROMPT_ICON_MAP = {
     'prompt-explain': 'selection-explain.svg',
     'prompt-summary': 'selection-summary.svg',
@@ -145,8 +147,9 @@
         id: item.id,
         title: (item.title || '').trim() || '未命名提示词',
         icon: (item.icon || '').trim() || '💡',
+        iconKey: SELECTION_PROMPT_ICON_MAP[item.iconKey] ? item.iconKey : (SELECTION_PROMPT_ICON_MAP[item.id] ? item.id : ''),
         template: typeof item.template === 'string' ? item.template : '',
-        enabled: item.enabled !== false
+        enabled: LOCKED_PROMPT_IDS.includes(item.id) ? true : item.enabled !== false
       });
     });
     return merged.filter((item) => item.template.trim());
@@ -235,6 +238,7 @@
       ),
       selectionToolbarEnabled: rawConfig.selectionToolbar?.enabled !== false && rawConfig.selectionToolbarEnabled !== false,
       searchAssistantEnabled: rawConfig.searchAssistant?.enabled !== false && rawConfig.searchAssistantEnabled !== false,
+      searchAssistantPlatform: AI_PLATFORMS[rawConfig.searchAssistant?.platform] ? rawConfig.searchAssistant.platform : (AI_PLATFORMS[rawConfig.searchAssistantPlatform] ? rawConfig.searchAssistantPlatform : 'doubao'),
       searchEngines: normalizedSearchEngines,
       contextMenuDefaultPlatform: AI_PLATFORMS[rawConfig.contextMenuDefaultPlatform] ? rawConfig.contextMenuDefaultPlatform : 'doubao',
       selectionMorePromptIds: normalizeMorePromptIds(rawConfig.selectionMorePromptIds, DEFAULT_PROMPTS),
@@ -248,6 +252,10 @@
 
   function getDefaultContextMenuPlatformId() {
     return AI_PLATFORMS[userConfig.contextMenuDefaultPlatform] ? userConfig.contextMenuDefaultPlatform : 'doubao';
+  }
+
+  function getDefaultSearchAssistantPlatformId() {
+    return AI_PLATFORMS[userConfig.searchAssistantPlatform] ? userConfig.searchAssistantPlatform : 'doubao';
   }
 
   function getPlatformAssetFile(platformKey) {
@@ -355,8 +363,11 @@
   }
 
   function getSelectionPromptIconMarkup(prompt) {
-    if (SELECTION_PROMPT_ICON_MAP[prompt?.id]) {
-      return `<img src="${chrome.runtime.getURL(`icons/${SELECTION_PROMPT_ICON_MAP[prompt.id]}`)}" alt="" aria-hidden="true">`;
+    const iconKey = prompt?.iconKey && SELECTION_PROMPT_ICON_MAP[prompt.iconKey]
+      ? prompt.iconKey
+      : prompt?.id;
+    if (SELECTION_PROMPT_ICON_MAP[iconKey]) {
+      return `<img src="${chrome.runtime.getURL(`icons/${SELECTION_PROMPT_ICON_MAP[iconKey]}`)}" alt="" aria-hidden="true">`;
     }
     return `<span class="ai-sp-selection-chip-fallback-icon">${escapeSelectionHtml(prompt?.icon || '•')}</span>`;
   }
@@ -1338,7 +1349,7 @@
     moreList.innerHTML = `
       ${morePrompts.map((item) => `
         <button class="ai-sp-selection-menu-item" data-selection-action="prompt" data-prompt-id="${escapeSelectionHtml(item.id)}">
-          <span class="ai-sp-selection-menu-item-icon">${getSelectionMenuIconMarkup(SELECTION_PROMPT_ICON_MAP[item.id], item.icon || '•')}</span>
+          <span class="ai-sp-selection-menu-item-icon">${getSelectionMenuIconMarkup(SELECTION_PROMPT_ICON_MAP[item.iconKey || item.id], item.icon || '•')}</span>
           <span class="ai-sp-selection-menu-item-copy">
             <span class="ai-sp-selection-menu-item-title">${escapeSelectionHtml(item.title)}</span>
             <small>${escapeSelectionHtml(item.template.replace(/\s+/g, ' ').slice(0, 48))}</small>
@@ -1755,8 +1766,11 @@
         return;
       }
     
-    // 如果当前平台被禁用了，则切换到第一个启用的平台
-    if (!enabledPlatforms.includes(currentPlatform)) {
+    const searchEngineId = getCurrentSearchEngine();
+    const preferredSearchPlatform = getDefaultSearchAssistantPlatformId();
+    if (searchEngineId && enabledPlatforms.includes(preferredSearchPlatform)) {
+      currentPlatform = preferredSearchPlatform;
+    } else if (!enabledPlatforms.includes(currentPlatform)) {
       currentPlatform = enabledPlatforms[0];
     }
 
@@ -1780,9 +1794,15 @@
     const pendingSummaryRequests = new Map();
     let currentSessionQuery = (query || '').trim();
     let lastFloatingActionId = '';
-    const getEnabledPlatformsList = () => userConfig.platforms
+      const getEnabledPlatformsList = () => userConfig.platforms
       .filter(p => p.enabled && AI_PLATFORMS[p.id])
       .map(p => p.id);
+    const getSearchSyncPlatformId = () => {
+      const preferred = getDefaultSearchAssistantPlatformId();
+      const enabled = getEnabledPlatformsList();
+      if (enabled.includes(preferred)) return preferred;
+      return enabled[0] || preferred;
+    };
     const getCurrentQueryText = () => getSearchQuery() || currentSessionQuery || '';
 
     const buildNativeSidePanelState = () => {
@@ -2128,7 +2148,7 @@
           <img src="${chrome.runtime.getURL('icons/drag.svg')}" style="width:20px;height:20px;pointer-events:none;" />
           <span class="ai-sp-tooltip">按住拖拽</span>
         </button>
-        <img src="${chrome.runtime.getURL('icons/icon48.png')}" style="width: 18px; height: 18px; margin-right: 6px;">
+        <img src="${chrome.runtime.getURL('icons/aichatbox.png')}" style="width: 18px; height: 18px; margin-right: 6px;">
       </div>
       <div class="ai-sp-header-controls">
         <button id="ai-sp-theme-btn">
@@ -2138,7 +2158,7 @@
         </button>
         <button id="ai-sp-prompt-library-toolbar-btn">
           <img src="${chrome.runtime.getURL('icons/selection-prompts.svg')}" style="width:20px;height:20px;" />
-          <span class="ai-sp-tooltip">提示词库</span>
+          <span class="ai-sp-tooltip">提示词</span>
         </button>
         <button id="ai-sp-memo-btn" aria-label="打开备忘录">
           <img src="${chrome.runtime.getURL('icons/memo.svg')}" style="width:20px;height:20px;" />
@@ -3326,7 +3346,15 @@
           adjustPageLayout();
         }
         currentSessionQuery = currentQuery;
-        triggerPlatformSend(currentQuery, currentPlatform);
+        const syncPlatformId = getSearchSyncPlatformId();
+        if (currentPlatform !== syncPlatformId) {
+          currentPlatform = syncPlatformId;
+          Array.from(buttonContainer.querySelectorAll('.ai-sp-platform-btn')).forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.platform === currentPlatform);
+          });
+          updateIframeDisplay();
+        }
+        triggerPlatformSend(currentQuery, syncPlatformId);
       }
     }, 1000);
 

@@ -1,9 +1,11 @@
 // background/background.js
 
 const sidePanelStates = new Map();
+const CONFIG_STORAGE_KEY = "aiSearchProConfig";
 const SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY = "aiSearchProSidepanelContextAction";
 const FLOATING_CONTEXT_ACTION_STORAGE_KEY = "aiSearchProFloatingContextAction";
 const AI_CONTEXT_MENU_ROOT_ID = "ai-search-pro-process";
+const SHORTCUT_COMMAND_ID = "toggle-ai-search-pro";
 const AI_CONTEXT_MENU_ITEMS = [
   { id: "prompt-explain", title: "解释" },
   { id: "prompt-summary", title: "总结" },
@@ -52,6 +54,15 @@ function updateSidePanelState(tabId, patch = {}) {
 async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   return tabs && tabs.length ? tabs[0] : null;
+}
+
+async function isKeyboardShortcutEnabled() {
+  try {
+    const result = await chrome.storage.local.get([CONFIG_STORAGE_KEY]);
+    return result?.[CONFIG_STORAGE_KEY]?.keyboardShortcutEnabled !== false;
+  } catch (e) {
+    return true;
+  }
 }
 
 async function queueSidePanelContextAction(action) {
@@ -273,6 +284,24 @@ chrome.action?.onClicked.addListener((tab) => {
   openNativeSidePanel(tab.id, { activeUrl: tab.url || "about:blank", windowId: tab.windowId }).catch(err => {
     console.log("Open native side panel failed:", err);
   });
+});
+
+chrome.commands?.onCommand.addListener(async (command) => {
+  if (command !== SHORTCUT_COMMAND_ID) return;
+  if (!(await isKeyboardShortcutEnabled())) return;
+  const tab = await getActiveTab();
+  if (!tab?.id) return;
+  const state = sidePanelStates.get(tab.id) || getDefaultSidePanelState(tab.id, tab.url || "about:blank");
+  if (state.nativeSidebarOpen) {
+    await closeNativeSidePanel(tab.id, tab.windowId);
+    return;
+  }
+  const result = await openNativeSidePanel(tab.id, { activeUrl: tab.url || "about:blank", windowId: tab.windowId });
+  if (!result?.ok) {
+    try {
+      await sendMessageToTab(tab.id, { action: "TOGGLE_UI", openSidebar: false, forceShow: true });
+    } catch (e) {}
+  }
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

@@ -12,14 +12,14 @@
     <div class="settings-toolbar">
       <div class="settings-toolbar-inner">
         <div class="settings-toolbar-brand">
-          <img class="settings-brand-logo" src="../icons/icon48.png" alt="">
+          <img class="settings-brand-logo" src="../icons/aichatbox.png" alt="">
           <span class="settings-toolbar-title">AIChatbox</span>
         </div>
         <div class="settings-toolbar-actions">
-          <button id="open-settings-home-btn" class="settings-action-btn is-active" type="button">设置</button>
-          <button id="open-prompt-library-btn" class="settings-action-btn" type="button">提示词库</button>
-          <button id="open-memo-btn" class="settings-action-btn" type="button">备忘录</button>
-          <button id="open-compare-btn" class="settings-action-btn" type="button">内容对比</button>
+          <button id="open-settings-home-btn" class="settings-action-btn is-active" type="button" data-top-icon="settings">设置</button>
+          <button id="open-prompt-library-btn" class="settings-action-btn" type="button" data-top-icon="prompts">提示词</button>
+          <button id="open-memo-btn" class="settings-action-btn" type="button" data-top-icon="memo">备忘录</button>
+          <button id="open-compare-btn" class="settings-action-btn" type="button" data-top-icon="compare">内容对比</button>
         </div>
       </div>
     </div>
@@ -31,6 +31,14 @@
             <span class="settings-nav-icon" data-nav-icon="general"></span>
             <span>通用设置</span>
           </button>
+          <button class="settings-nav-item" data-section-target="keyboard-shortcuts">
+            <span class="settings-nav-icon" data-nav-icon="keyboard-shortcuts"></span>
+            <span>快捷键</span>
+          </button>
+          <button class="settings-nav-item" data-section-target="search-assistant">
+            <span class="settings-nav-icon" data-nav-icon="search-assistant"></span>
+            <span>搜索助手</span>
+          </button>
           <button class="settings-nav-item" data-section-target="assistants">
             <span class="settings-nav-icon" data-nav-icon="assistants"></span>
             <span>AI 平台</span>
@@ -39,12 +47,17 @@
             <span class="settings-nav-icon" data-nav-icon="selection-toolbar"></span>
             <span>划词工具栏</span>
           </button>
-          <button class="settings-nav-item" data-section-target="search-assistant">
-            <span class="settings-nav-icon" data-nav-icon="search-assistant"></span>
-            <span>搜索助手</span>
-          </button>
         </nav>
         <div class="settings-sidebar-note">
+          <button class="settings-nav-item settings-nav-item--link" id="settings-contact-nav" type="button" data-section-target="contact-us">
+            <span class="settings-nav-main">
+              <span class="settings-nav-icon" data-nav-icon="contact-us"></span>
+              <span>联系我们</span>
+            </span>
+            <span class="settings-nav-arrow" aria-hidden="true">
+              <img src="../icons/chevron-right.svg" alt="">
+            </span>
+          </button>
           <span class="settings-save-state is-idle" id="settings-save-state">设置已同步</span>
         </div>
       </aside>
@@ -54,36 +67,154 @@
           <section class="settings-section" id="general" data-section="general">
             <div class="settings-section-head">
               <div>
-                <h2>主题模式</h2>
-                <p>选择固定深浅色，或自动跟随系统环境</p>
+                <h2>通用设置</h2>
+                <p>管理主题和界面显示语言等基础偏好</p>
               </div>
             </div>
-            <div class="settings-card">
-              <div class="settings-option-grid theme-grid">
-                <label class="settings-choice-card">
-                  <input type="radio" name="theme" value="auto">
-                  <span class="settings-choice-icon" data-theme-icon="auto"></span>
-                  <span class="settings-choice-copy">
-                    <strong>自动</strong>
-                    <span>跟随系统环境</span>
-                  </span>
-                </label>
-                <label class="settings-choice-card">
-                  <input type="radio" name="theme" value="dark">
-                  <span class="settings-choice-icon" data-theme-icon="dark"></span>
-                  <span class="settings-choice-copy">
-                    <strong>深色模式</strong>
-                    <span>适合夜间使用</span>
-                  </span>
-                </label>
-                <label class="settings-choice-card">
-                  <input type="radio" name="theme" value="light">
-                  <span class="settings-choice-icon" data-theme-icon="light"></span>
-                  <span class="settings-choice-copy">
-                    <strong>浅色模式</strong>
-                    <span>保持明亮观感</span>
-                  </span>
-                </label>
+            <div class="settings-stack">
+              <div class="settings-card">
+                <div class="settings-card-title">主题模式</div>
+                <div class="settings-card-desc">选择固定深浅色，或自动跟随系统环境</div>
+                <div class="settings-option-grid theme-grid">
+                  <label class="settings-choice-card">
+                    <input type="radio" name="theme" value="auto">
+                    <span class="settings-choice-icon" data-theme-icon="auto"></span>
+                    <span class="settings-choice-copy">
+                      <strong>自动</strong>
+                      <span>跟随系统环境</span>
+                    </span>
+                  </label>
+                  <label class="settings-choice-card">
+                    <input type="radio" name="theme" value="dark">
+                    <span class="settings-choice-icon" data-theme-icon="dark"></span>
+                    <span class="settings-choice-copy">
+                      <strong>深色模式</strong>
+                      <span>适合夜间使用</span>
+                    </span>
+                  </label>
+                  <label class="settings-choice-card">
+                    <input type="radio" name="theme" value="light">
+                    <span class="settings-choice-icon" data-theme-icon="light"></span>
+                    <span class="settings-choice-copy">
+                      <strong>浅色模式</strong>
+                      <span>保持明亮观感</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="settings-context-section">
+                  <div class="settings-context-head">
+                    <p class="settings-context-title">显示语言</p>
+                    <p class="settings-context-desc">选择界面显示语言，后续将统一用于设置、提示词、备忘录、内容对比、小窗和侧边栏</p>
+                  </div>
+                  <div class="settings-context-card">
+                    <div class="settings-context-copy">
+                      <p class="settings-context-copy-title">界面语言</p>
+                      <p class="settings-context-copy-desc">选择后将作为界面显示语言入口，当前版本暂不切换实际多语言文案</p>
+                    </div>
+                    <div class="settings-context-platform settings-context-platform--language">
+                      <button type="button" id="settings-display-language-trigger" class="settings-context-platform-trigger" aria-expanded="false"></button>
+                      <div id="settings-display-language-menu" class="settings-context-platform-menu" hidden></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <section class="settings-section" id="keyboard-shortcuts" data-section="keyboard-shortcuts">
+            <div class="settings-section-head">
+              <div>
+                <h2>快捷键</h2>
+                <p>使用系统快捷键快速打开或关闭 AIChatbox</p>
+              </div>
+            </div>
+            <div class="settings-stack">
+              <div class="settings-card settings-switch-card">
+                <div class="settings-switch-row">
+                  <div class="settings-switch-copy">
+                    <strong id="keyboard-shortcut-switch-title">开启快捷键</strong>
+                    <span>启用后，可使用默认快捷键快速打开或关闭 AIChatbox</span>
+                  </div>
+                  <label class="settings-switch">
+                    <input type="checkbox" id="keyboard-shortcut-enabled">
+                    <span class="settings-switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="settings-card-title">默认快捷键</div>
+                <div class="settings-card-desc">可在浏览器的扩展快捷键页继续修改</div>
+                <div class="settings-shortcut-grid">
+                  <div class="settings-shortcut-chip">
+                    <span class="settings-shortcut-label">MacOS</span>
+                    <strong>Command + Shift + M</strong>
+                  </div>
+                  <div class="settings-shortcut-chip">
+                    <span class="settings-shortcut-label">Windows</span>
+                    <strong>Ctrl + Shift + M</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section" id="search-assistant" data-section="search-assistant">
+            <div class="settings-section-head">
+              <div>
+                <h2>搜索助手</h2>
+                <p>在支持的搜索引擎结果页显示 AI 小窗入口</p>
+              </div>
+            </div>
+
+            <div class="settings-stack">
+              <div class="settings-card settings-switch-card">
+                <div class="settings-switch-row">
+                  <div class="settings-switch-copy">
+                    <strong id="search-assistant-switch-title">开启搜索助手</strong>
+                    <span>启用后，搜索结果页旁会显示 AI 驱动的小窗</span>
+                  </div>
+                  <label class="settings-switch">
+                    <input type="checkbox" id="search-assistant-enabled">
+                    <span class="settings-switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-card" id="search-engine-card">
+                <div class="settings-card-title">搜索引擎</div>
+                <div class="settings-card-desc">按需开启支持的搜索引擎</div>
+                <div class="settings-chip-grid" id="settings-engine-list"></div>
+              </div>
+
+              <div class="settings-card" id="search-platform-card">
+                <div class="settings-context-section">
+                  <div class="settings-context-head">
+                    <p class="settings-context-title">AI搜索平台</p>
+                    <p class="settings-context-desc">设置搜索结果页默认同步到的 AI 平台</p>
+                  </div>
+                  <div class="settings-context-card">
+                    <div class="settings-context-copy">
+                      <p class="settings-context-copy-title">默认 AI 平台</p>
+                      <p class="settings-context-copy-desc">搜索结果页内容会默认同步到这里选择的 AI 平台</p>
+                    </div>
+                    <div class="settings-context-platform">
+                      <button type="button" id="settings-search-platform-trigger" class="settings-context-platform-trigger" aria-expanded="false"></button>
+                      <div id="settings-search-platform-menu" class="settings-context-platform-menu" hidden></div>
+                    </div>
+                  </div>
+                  <div class="settings-reminder-card">
+                    <div class="settings-reminder-title">重要提醒</div>
+                    <ul class="settings-reminder-list">
+                      <li>请保持该AI平台的登录状态</li>
+                      <li>仅会同步到当前选中的 AI 搜索平台，如需切换请先在这里修改</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -160,8 +291,13 @@
               </div>
 
               <div class="settings-card">
-                <div class="settings-card-title">更多菜单</div>
-                <div class="settings-card-desc">可多选，选中后会显示在划词面板的更多菜单中</div>
+                <div class="settings-card-topline">
+                  <div>
+                    <div class="settings-card-title">更多菜单</div>
+                    <div class="settings-card-desc">可多选，选中后会显示在划词面板的更多菜单中</div>
+                  </div>
+                  <button id="settings-manage-prompts-btn" class="settings-manage-btn" type="button">管理</button>
+                </div>
                 <div class="settings-prompt-grid" id="selection-more-actions-list"></div>
               </div>
 
@@ -183,35 +319,33 @@
                   </div>
                 </div>
               </div>
+
             </div>
           </section>
 
-          <section class="settings-section" id="search-assistant" data-section="search-assistant">
+          <section class="settings-section" id="contact-us" data-section="contact-us">
             <div class="settings-section-head">
               <div>
-                <h2>搜索助手</h2>
-                <p>在支持的搜索引擎结果页显示 AI 小窗入口</p>
+                <h2>联系我们</h2>
+                <p>获取支持、反馈问题或提交合作需求</p>
               </div>
             </div>
-
             <div class="settings-stack">
-              <div class="settings-card settings-switch-card">
-                <div class="settings-switch-row">
-                  <div class="settings-switch-copy">
-                    <strong id="search-assistant-switch-title">开启搜索助手</strong>
-                    <span>启用后，搜索结果页旁会显示 AI 驱动的小窗</span>
-                  </div>
-                  <label class="settings-switch">
-                    <input type="checkbox" id="search-assistant-enabled">
-                    <span class="settings-switch-slider"></span>
-                  </label>
-                </div>
-              </div>
-
-              <div class="settings-card" id="search-engine-card">
-                <div class="settings-card-title">搜索引擎</div>
-                <div class="settings-card-desc">按需开启支持的搜索引擎</div>
-                <div class="settings-chip-grid" id="settings-engine-list"></div>
+              <div class="settings-card">
+                <button id="settings-contact-link" class="settings-link-row" type="button">
+                  <span class="settings-link-row-main">
+                    <span class="settings-link-row-icon">
+                      <img src="../icons/contact-us.svg" alt="">
+                    </span>
+                    <span class="settings-link-row-copy">
+                      <strong>联系我们</strong>
+                      <span>前往新的页面或邮件入口，获取支持与反馈渠道</span>
+                    </span>
+                  </span>
+                  <span class="settings-link-row-arrow" aria-hidden="true">
+                    <img src="../icons/chevron-right.svg" alt="">
+                  </span>
+                </button>
               </div>
             </div>
           </section>

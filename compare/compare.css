@@ -440,24 +440,8 @@ html, body {
 }
 
 .cmp-pane-select-wrap {
-  flex: 0 0 auto;
-}
-
-.cmp-pane-select-wrap .cmp-select-trigger {
-  width: 32px;
-  min-width: 32px;
-  padding: 2px;
-  justify-content: center;
-  gap: 0;
-}
-
-.cmp-pane-select-wrap .cmp-select-trigger-main {
-  justify-content: center;
-}
-
-.cmp-pane-select-wrap .cmp-select-trigger-label,
-.cmp-pane-select-wrap .cmp-select-trigger-arrow {
-  display: none;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .cmp-select-trigger {
@@ -791,6 +775,10 @@ html, body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.cmp-toggle:hover {
+  background: var(--cmp-btn-hover);
 }
 
 .cmp-panel-body {

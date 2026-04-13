@@ -38,6 +38,15 @@ const PROMPT_LIBRARY_STORAGE_KEY = 'aiSearchProPromptLibrary';
 const FAVORITES_STORAGE_KEY = 'aiSearchProFavorites';
 const SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY = 'aiSearchProSidepanelContextAction';
 const DEFAULT_SELECTION_DISPLAY_MODE = 'text';
+const PROMPT_ICON_MAP = {
+  'prompt-explain': 'selection-explain.svg',
+  'prompt-summary': 'selection-summary.svg',
+  'prompt-translate': 'selection-translate.svg',
+  'prompt-polish': 'selection-polish.svg',
+  'prompt-rewrite': 'selection-rewrite.svg',
+  'prompt-review': 'selection-review.svg',
+  'prompt-article': 'selection-article.svg'
+};
 const PLATFORM_ORDER = Object.keys(AI_PLATFORMS);
 let currentPlatform = 'doubao';
 let currentQuery = '';
@@ -58,10 +67,11 @@ const DEFAULT_PROMPTS = [
   { id: 'prompt-summary', title: '总结', icon: '📝', template: '请总结下面这段内容的核心要点：\n\n{{text}}', enabled: true },
   { id: 'prompt-translate', title: '翻译', icon: '🌐', template: '请把下面内容翻译成中文，并保留原意：\n\n{{text}}', enabled: true },
   { id: 'prompt-polish', title: '润色', icon: '✨', template: '请润色下面这段内容，让表达更清晰自然：\n\n{{text}}', enabled: true },
-  { id: 'prompt-review', title: '代码审查', icon: '🔍', template: '请从可读性、潜在问题和改进建议三个方面审查下面这段代码：\n\n{{text}}', enabled: false },
-  { id: 'prompt-rewrite', title: '改写', icon: '✍️', template: '请在不改变原意的前提下改写下面内容，让表达更自然：\n\n{{text}}', enabled: false },
-  { id: 'prompt-article', title: '文章提炼', icon: '📚', template: '请结合以下上下文提炼关键信息，并给出结构化总结：\n\n选中内容：\n{{text}}\n\n上下文：\n{{context}}\n\n页面标题：{{page}}\n页面地址：{{url}}', enabled: false }
+  { id: 'prompt-rewrite', title: '改写', icon: '✍️', template: '请在不改变原意的前提下改写下面内容，让表达更自然：\n\n{{text}}', enabled: true },
+  { id: 'prompt-article', title: '文章提炼', icon: '📚', template: '请结合以下上下文提炼关键信息，并给出结构化总结：\n\n选中内容：\n{{text}}\n\n上下文：\n{{context}}\n\n页面标题：{{page}}\n页面地址：{{url}}', enabled: false },
+  { id: 'prompt-review', title: '代码审查', icon: '🔍', template: '请从可读性、潜在问题和改进建议三个方面审查下面这段代码：\n\n{{text}}', enabled: false }
 ];
+const LOCKED_PROMPT_IDS = ['prompt-explain', 'prompt-summary', 'prompt-translate', 'prompt-polish', 'prompt-rewrite'];
 const SETTINGS_MENU_ITEMS = [
   { action: 'inline-assistants', label: 'AI 助手显示设置' },
   { tab: 'general', label: '系统设置' }
@@ -149,8 +159,9 @@ function normalizePromptLibrary(list) {
       id: item.id,
       title: (item.title || '').trim() || '未命名提示词',
       icon: (item.icon || '').trim() || '💡',
+      iconKey: PROMPT_ICON_MAP[item.iconKey] ? item.iconKey : (PROMPT_ICON_MAP[item.id] ? item.id : ''),
       template,
-      enabled: item.enabled !== false
+      enabled: LOCKED_PROMPT_IDS.includes(item.id) ? true : item.enabled !== false
     });
   });
   return merged;
@@ -176,6 +187,14 @@ function applyPromptTemplate(template, text, variables = {}) {
     return replaced ? `${replaced}\n\n${merged.text}`.trim() : merged.text;
   }
   return replaced;
+}
+
+function getPromptIconMarkup(item) {
+  const iconKey = item?.iconKey && PROMPT_ICON_MAP[item.iconKey] ? item.iconKey : item?.id;
+  if (PROMPT_ICON_MAP[iconKey]) {
+    return `<img src="${assetUrl(PROMPT_ICON_MAP[iconKey])}" alt="" aria-hidden="true" style="width:18px;height:18px;display:block;">`;
+  }
+  return `<span>${escapeHtml(item?.icon || '💡')}</span>`;
 }
 
 async function loadPromptLibrary() {
@@ -340,7 +359,7 @@ async function renderPromptMenu() {
   } else {
     menu.innerHTML = enabledPromptList.map((item) => `
       <button class="ai-sp-prompt-item" data-prompt-id="${item.id}">
-        <strong>${item.icon || '💡'} ${item.title}</strong>
+        <strong>${getPromptIconMarkup(item)} ${escapeHtml(item.title)}</strong>
         <span>${item.template.replace(/\s+/g, ' ').slice(0, 60)}</span>
       </button>
     `).join('');
@@ -640,8 +659,7 @@ function renderShell() {
       <div class="ai-sp-header">
         <div class="ai-sp-header-left">
           <div class="ai-sp-title">
-            <span class="ai-sp-logo">✦</span>
-            <span>OmniAI</span>
+            <img class="ai-sp-brand-logo" src="${chrome.runtime.getURL('icons/aichatbox.png')}" alt="AIChatbox" />
           </div>
         </div>
         <div class="ai-sp-header-controls">
@@ -650,9 +668,9 @@ function renderShell() {
             <img class="ai-sp-icon-moon" src="${iconUrl('moon')}" style="width:20px;height:20px;display:block;" />
             <span class="ai-sp-tooltip">切换深色模式</span>
           </button>
-          <button id="ai-sp-prompt-library-toolbar-btn" aria-label="提示词库">
+          <button id="ai-sp-prompt-library-toolbar-btn" aria-label="提示词">
             <img src="${iconUrl('selection-prompts')}" style="width:20px;height:20px;" />
-            <span class="ai-sp-tooltip">提示词库</span>
+          <span class="ai-sp-tooltip">提示词</span>
           </button>
           <button id="ai-sp-memo-btn" aria-label="打开备忘录">
             <img src="${iconUrl('memo')}" style="width:20px;height:20px;" />

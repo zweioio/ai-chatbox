@@ -249,15 +249,14 @@
 .ai-sp-title {
   display: flex;
   align-items: center;
-  gap: 4px; /* 减小标题内部的间距，因为有了拖拽图标 */
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--ai-sp-text);
+  gap: 0;
 }
 
-.ai-sp-logo {
-  color: var(--ai-sp-primary);
-  font-size: 16px;
+.ai-sp-brand-logo {
+  width: 22px;
+  height: 22px;
+  display: block;
+  border-radius: 0;
 }
 
 .ai-sp-header-controls {
@@ -501,6 +500,9 @@
 }
 
 .ai-sp-prompt-item strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 600;
 }

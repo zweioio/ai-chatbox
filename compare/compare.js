@@ -83,6 +83,7 @@
   const toastEl = document.getElementById("cmp-toast");
   const grid = document.getElementById("cmp-grid");
   const bodyEl = document.getElementById("cmp-body");
+  const settingsBtn = document.getElementById("cmp-settings-btn");
   const themeBtn = document.getElementById("cmp-theme-btn");
   const legendFilterEls = Array.from(document.querySelectorAll(".cmp-tag-filter"));
   const legendDescEl = document.getElementById("cmp-legend-desc");
@@ -469,6 +470,14 @@
     showToast._timer = setTimeout(() => {
       toastEl.style.display = "none";
     }, 1600);
+  }
+
+  function openExtensionPage(pagePath) {
+    if (typeof window.__AI_SEARCH_PRO_NAVIGATE === "function") {
+      window.__AI_SEARCH_PRO_NAVIGATE(pagePath);
+      return;
+    }
+    window.location.href = chrome.runtime.getURL(pagePath);
   }
 
   function getPaneNodes() {
@@ -1277,6 +1286,12 @@
       const nextTheme = currentTheme === "dark" ? "light" : "dark";
       applyTheme(nextTheme);
       await persistThemePreference(nextTheme);
+    });
+  }
+
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      openExtensionPage("settings/settings.html");
     });
   }
 

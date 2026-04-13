@@ -3,14 +3,25 @@
   const CONFIG_STORAGE_KEY = 'aiSearchProConfig';
   const PREVIEW_TEXT = '请帮我整理这段内容的重点，并用简单清晰的方式输出。';
   const PREVIEW_CONTEXT = '这段内容来自一个网页段落，主题和 AI 搜索、插件体验优化有关。';
+  const PROMPT_ICON_OPTIONS = [
+    { key: 'prompt-explain', label: '解释', file: 'selection-explain.svg', fallback: '💡' },
+    { key: 'prompt-summary', label: '总结', file: 'selection-summary.svg', fallback: '📝' },
+    { key: 'prompt-translate', label: '翻译', file: 'selection-translate.svg', fallback: '🌐' },
+    { key: 'prompt-polish', label: '润色', file: 'selection-polish.svg', fallback: '✨' },
+    { key: 'prompt-review', label: '代码审查', file: 'selection-review.svg', fallback: '🔍' },
+    { key: 'prompt-rewrite', label: '改写', file: 'selection-rewrite.svg', fallback: '✍️' },
+    { key: 'prompt-article', label: '文章提炼', file: 'selection-article.svg', fallback: '📚' }
+  ];
+  const PROMPT_ICON_MAP = new Map(PROMPT_ICON_OPTIONS.map((item) => [item.key, item]));
+  const LOCKED_PROMPT_IDS = ['prompt-explain', 'prompt-summary', 'prompt-translate', 'prompt-polish', 'prompt-rewrite'];
   const DEFAULT_PROMPTS = [
-    { id: 'prompt-explain', title: '解释', icon: '💡', template: '请用简单易懂的方式解释下面这段内容：\n\n{{text}}', enabled: true },
-    { id: 'prompt-summary', title: '总结', icon: '📝', template: '请总结下面这段内容的核心要点：\n\n{{text}}', enabled: true },
-    { id: 'prompt-translate', title: '翻译', icon: '🌐', template: '请把下面内容翻译成中文，并保留原意：\n\n{{text}}', enabled: true },
-    { id: 'prompt-polish', title: '润色', icon: '✨', template: '请润色下面这段内容，让表达更清晰自然：\n\n{{text}}', enabled: true },
-    { id: 'prompt-review', title: '代码审查', icon: '🔍', template: '请从可读性、潜在问题和改进建议三个方面审查下面这段代码：\n\n{{text}}', enabled: false },
-    { id: 'prompt-rewrite', title: '改写', icon: '✍️', template: '请在不改变原意的前提下改写下面内容，让表达更自然：\n\n{{text}}', enabled: false },
-    { id: 'prompt-article', title: '文章提炼', icon: '📚', template: '请结合以下上下文提炼关键信息，并给出结构化总结：\n\n选中内容：\n{{text}}\n\n上下文：\n{{context}}\n\n页面标题：{{page}}\n页面地址：{{url}}', enabled: false }
+    { id: 'prompt-explain', title: '解释', icon: '💡', iconKey: 'prompt-explain', template: '请用简单易懂的方式解释下面这段内容：\n\n{{text}}', enabled: true },
+    { id: 'prompt-summary', title: '总结', icon: '📝', iconKey: 'prompt-summary', template: '请总结下面这段内容的核心要点：\n\n{{text}}', enabled: true },
+    { id: 'prompt-translate', title: '翻译', icon: '🌐', iconKey: 'prompt-translate', template: '请把下面内容翻译成中文，并保留原意：\n\n{{text}}', enabled: true },
+    { id: 'prompt-polish', title: '润色', icon: '✨', iconKey: 'prompt-polish', template: '请润色下面这段内容，让表达更清晰自然：\n\n{{text}}', enabled: true },
+    { id: 'prompt-rewrite', title: '改写', icon: '✍️', iconKey: 'prompt-rewrite', template: '请在不改变原意的前提下改写下面内容，让表达更自然：\n\n{{text}}', enabled: true },
+    { id: 'prompt-article', title: '文章提炼', icon: '📚', iconKey: 'prompt-article', template: '请结合以下上下文提炼关键信息，并给出结构化总结：\n\n选中内容：\n{{text}}\n\n上下文：\n{{context}}\n\n页面标题：{{page}}\n页面地址：{{url}}', enabled: false },
+    { id: 'prompt-review', title: '代码审查', icon: '🔍', iconKey: 'prompt-review', template: '请从可读性、潜在问题和改进建议三个方面审查下面这段代码：\n\n{{text}}', enabled: false }
   ];
   const listEl = document.getElementById('pl-list');
   const addBtn = document.getElementById('pl-add-btn');
@@ -33,7 +44,10 @@
   const openMemoBtn = document.getElementById('pl-open-memo-btn');
   const openCompareBtn = document.getElementById('pl-open-compare-btn');
   const formTitle = document.getElementById('pl-form-title');
-  const formIcon = document.getElementById('pl-form-icon');
+  const formIconKey = document.getElementById('pl-form-icon-key');
+  const formIconTrigger = document.getElementById('pl-form-icon-trigger');
+  const formIconPreview = document.getElementById('pl-form-icon-preview');
+  const iconPicker = document.getElementById('pl-icon-picker');
   const formTemplate = document.getElementById('pl-form-template');
   const formEnabled = document.getElementById('pl-form-enabled');
   const previewText = document.getElementById('pl-preview-text');
@@ -41,6 +55,7 @@
   let keyword = '';
   let dirty = false;
   let editingId = '';
+  let iconPickerOpen = false;
   const themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
   function makeId() {
@@ -81,11 +96,31 @@
       id: item.id,
       title: item.title,
       icon: item.icon || '💡',
+      iconKey: item.iconKey || item.id,
       template: item.template,
       enabled: item.enabled !== false,
       createdAt: now,
       updatedAt: now
     };
+  }
+
+  function getPromptIconOption(key) {
+    return PROMPT_ICON_MAP.get(key) || PROMPT_ICON_OPTIONS[0];
+  }
+
+  function resolvePromptIconKey(item) {
+    if (item?.iconKey && PROMPT_ICON_MAP.has(item.iconKey)) return item.iconKey;
+    if (item?.id && PROMPT_ICON_MAP.has(item.id)) return item.id;
+    return PROMPT_ICON_OPTIONS[0].key;
+  }
+
+  function getPromptIconMarkup(iconKey, alt = '') {
+    const option = getPromptIconOption(iconKey);
+    return `<img src="${chrome.runtime.getURL(`icons/${option.file}`)}" alt="${escapeHtml(alt || option.label)}" />`;
+  }
+
+  function isLockedPrompt(id) {
+    return LOCKED_PROMPT_IDS.includes(id);
   }
 
   function normalize(list) {
@@ -112,13 +147,17 @@
         id,
         title,
         icon: String(item.icon || '💡').trim() || '💡',
+        iconKey: resolvePromptIconKey(item),
         template,
-        enabled: item.enabled !== false,
+        enabled: isLockedPrompt(id) ? true : item.enabled !== false,
         createdAt: timestamp,
         updatedAt: Number(item.updatedAt) || timestamp
       });
     });
-    return merged.sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+    const mergedMap = new Map(merged.map((item) => [item.id, item]));
+    const orderedBuiltins = DEFAULT_PROMPTS.map((item) => mergedMap.get(item.id)).filter(Boolean);
+    orderedBuiltins.forEach((item) => mergedMap.delete(item.id));
+    return [...orderedBuiltins, ...Array.from(mergedMap.values())];
   }
 
   function setDirty(nextDirty, text = '') {
@@ -153,7 +192,7 @@
     const q = keyword.trim().toLowerCase();
     if (!q) return prompts;
     return prompts.filter((item) => {
-      const haystack = `${item.title} ${item.template} ${item.icon}`.toLowerCase();
+      const haystack = `${item.title} ${item.template} ${item.icon} ${item.iconKey || ''}`.toLowerCase();
       return haystack.includes(q);
     });
   }
@@ -178,17 +217,27 @@
       <div class="pl-card" data-id="${item.id}">
         <div class="pl-card-top">
           <div class="pl-card-title">
-            <span class="pl-card-icon">${escapeHtml(item.icon)}</span>
+            <span class="pl-card-icon">${getPromptIconMarkup(item.iconKey, item.title)}</span>
             <div>
               <strong>${escapeHtml(item.title)}</strong>
               <span>更新于 ${formatTime(item.updatedAt)}</span>
             </div>
           </div>
           <div class="pl-card-actions">
-            <span class="pl-toggle" data-enabled="${item.enabled ? 'true' : 'false'}">${item.enabled ? '已启用' : '已停用'}</span>
-            <button data-action="copy">复制</button>
-            <button data-action="edit">编辑</button>
+            <button class="pl-switch${isLockedPrompt(item.id) ? ' is-locked' : ''}" type="button" data-action="toggle-enabled" data-enabled="${item.enabled ? 'true' : 'false'}" aria-label="${item.enabled ? '停用提示词' : '启用提示词'}" aria-pressed="${item.enabled ? 'true' : 'false'}" title="${isLockedPrompt(item.id) ? '基础提示词不可关闭' : ''}">
+              <span class="pl-switch-track"><span class="pl-switch-thumb"></span></span>
+            </button>
           </div>
+        </div>
+        <div class="pl-card-hover-actions">
+          <button class="pl-card-icon-button" type="button" data-action="copy" aria-label="复制提示词">
+            <img src="../icons/copy.svg" alt="" />
+            <span class="pl-card-action-tip">复制</span>
+          </button>
+          <button class="pl-card-icon-button" type="button" data-action="edit" aria-label="编辑提示词">
+            <img src="../icons/edit.svg" alt="" />
+            <span class="pl-card-action-tip">编辑</span>
+          </button>
         </div>
         <div class="pl-card-body">
           <p class="pl-card-preview">${escapeHtml(item.template)}</p>
@@ -215,22 +264,64 @@
     previewText.textContent = applyTemplatePreview(formTemplate.value.trim()) || '这里会显示提示词预览效果';
   }
 
+  function renderIconPicker() {
+    const grid = iconPicker?.querySelector('.pl-icon-picker-grid');
+    if (!grid) return;
+    const selected = formIconKey.value || PROMPT_ICON_OPTIONS[0].key;
+    grid.innerHTML = PROMPT_ICON_OPTIONS.map((item) => `
+      <button type="button" class="pl-icon-option${item.key === selected ? ' is-active' : ''}" data-icon-key="${item.key}" aria-label="${escapeHtml(item.label)}">
+        ${getPromptIconMarkup(item.key, item.label)}
+      </button>
+    `).join('');
+  }
+
+  function updateIconPreview() {
+    if (!formIconPreview) return;
+    const selected = formIconKey.value || PROMPT_ICON_OPTIONS[0].key;
+    formIconPreview.innerHTML = getPromptIconMarkup(selected, getPromptIconOption(selected).label);
+  }
+
+  function syncIconPickerPosition() {
+    if (!iconPicker || !formIconTrigger || iconPicker.hidden) return;
+    const rect = formIconTrigger.getBoundingClientRect();
+    const pickerWidth = 248;
+    const gap = 10;
+    const top = Math.min(window.innerHeight - 180, rect.bottom + gap);
+    const left = Math.min(window.innerWidth - pickerWidth - 16, Math.max(16, rect.left));
+    iconPicker.style.top = `${Math.max(16, top)}px`;
+    iconPicker.style.left = `${left}px`;
+  }
+
+  function setIconPickerOpen(open) {
+    iconPickerOpen = open;
+    if (!iconPicker || !formIconTrigger) return;
+    iconPicker.hidden = !open;
+    formIconTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    renderIconPicker();
+    if (open) syncIconPickerPosition();
+  }
+
   function openEditor(id = '') {
     editingId = id;
     const item = prompts.find((prompt) => prompt.id === id);
-    editorTitle.textContent = item ? '编辑提示词' : '新增提示词';
+    editorTitle.textContent = item ? '编辑提示词' : '新建提示词';
     formTitle.value = item?.title || '';
-    formIcon.value = item?.icon || '💡';
+    formIconKey.value = resolvePromptIconKey(item || { id });
     formTemplate.value = item?.template || '';
     formEnabled.checked = item ? item.enabled !== false : true;
+    formEnabled.disabled = isLockedPrompt(item?.id);
+    formEnabled.closest('.pl-checkbox')?.classList.toggle('is-disabled', isLockedPrompt(item?.id));
     editorDelete.hidden = !item;
     editorMask.hidden = false;
+    updateIconPreview();
+    setIconPickerOpen(false);
     renderPreview();
     setTimeout(() => formTitle.focus(), 0);
   }
 
   function closeEditor() {
     editingId = '';
+    setIconPickerOpen(false);
     editorMask.hidden = true;
   }
 
@@ -251,16 +342,18 @@
       prompts = prompts.map((item) => item.id === editingId ? {
         ...item,
         title,
-        icon: formIcon.value.trim() || '💡',
+        icon: getPromptIconOption(formIconKey.value).fallback,
+        iconKey: formIconKey.value || PROMPT_ICON_OPTIONS[0].key,
         template,
-        enabled: formEnabled.checked,
+        enabled: isLockedPrompt(item.id) ? true : formEnabled.checked,
         updatedAt: now
       } : item);
     } else {
       prompts = [{
         id: makeId(),
         title,
-        icon: formIcon.value.trim() || '💡',
+        icon: getPromptIconOption(formIconKey.value).fallback,
+        iconKey: formIconKey.value || PROMPT_ICON_OPTIONS[0].key,
         template,
         enabled: formEnabled.checked,
         createdAt: now,
@@ -282,8 +375,13 @@
   }
 
   function restoreDefaults() {
-    prompts = normalize(DEFAULT_PROMPTS.map(createDefaultPrompt));
-    setDirty(true, '已恢复默认，请保存');
+    const builtInIds = new Set(DEFAULT_PROMPTS.map((item) => item.id));
+    const customPrompts = prompts.filter((item) => !builtInIds.has(item.id));
+    prompts = normalize([
+      ...DEFAULT_PROMPTS.map(createDefaultPrompt),
+      ...customPrompts
+    ]);
+    setDirty(true, '已恢复内置默认提示词，请保存');
     render();
   }
 
@@ -295,6 +393,10 @@
   }
 
   function togglePrompt(id) {
+    if (isLockedPrompt(id)) {
+      setDirty(dirty, '基础提示词不可关闭');
+      return;
+    }
     prompts = prompts.map((item) => item.id === id ? {
       ...item,
       enabled: !item.enabled,
@@ -326,7 +428,7 @@
       copyPromptContent(id);
       return;
     }
-    if (event.target.closest('.pl-toggle')) {
+    if (event.target.closest('[data-action="toggle-enabled"]')) {
       togglePrompt(id);
     }
   });
@@ -385,6 +487,19 @@
   editorMask.addEventListener('click', (event) => {
     if (event.target === editorMask) closeEditor();
   });
+  formIconTrigger?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setIconPickerOpen(!iconPickerOpen);
+  });
+  iconPicker?.addEventListener('click', (event) => {
+    const option = event.target.closest('[data-icon-key]');
+    if (!option) return;
+    formIconKey.value = option.dataset.iconKey || PROMPT_ICON_OPTIONS[0].key;
+    updateIconPreview();
+    setIconPickerOpen(false);
+  });
+  window.addEventListener('resize', syncIconPickerPosition);
+  window.addEventListener('scroll', syncIconPickerPosition, true);
 
   formTemplate.addEventListener('input', renderPreview);
   formTitle.addEventListener('keydown', (event) => {
@@ -413,6 +528,9 @@
   });
 
   document.addEventListener('click', (event) => {
+    if (iconPickerOpen && !event.target.closest('.pl-icon-field')) {
+      setIconPickerOpen(false);
+    }
     const variableBtn = event.target.closest('.pl-variable-chip');
     if (!variableBtn) return;
     const variable = variableBtn.dataset.variable;

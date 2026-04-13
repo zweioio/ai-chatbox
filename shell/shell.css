@@ -83,31 +83,31 @@ html[data-ai-sp-theme="dark"] .shell-topbar {
 .shell-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 24px;
   flex-wrap: wrap;
 }
 
 .shell-nav-btn {
   height: 36px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--shell-border);
-  background: var(--shell-card);
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
   color: var(--shell-text-secondary);
   font: inherit;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: color 0.2s ease;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .shell-nav-btn:hover {
-  background: var(--shell-hover);
-  color: var(--shell-text);
+  color: var(--shell-primary);
 }
 
 .shell-nav-btn.is-active {
-  border-color: var(--shell-primary);
   color: var(--shell-primary);
-  background: transparent;
+  font-weight: 400;
 }
 
 .shell-content {

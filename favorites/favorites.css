@@ -88,16 +88,17 @@ body {
   color: var(--fav-text-secondary);
   font-size: 14px;
   line-height: 1.4;
+  font-weight: 400;
   cursor: pointer;
 }
 
 .fav-topbar-btn:hover {
-  color: var(--fav-text);
+  color: #3c82f5;
 }
 
 .fav-topbar-btn.is-active {
   color: #3c82f5;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .fav-wrap {
@@ -115,7 +116,7 @@ body {
 
 .fav-head h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 28px;
   line-height: 1.2;
 }
 

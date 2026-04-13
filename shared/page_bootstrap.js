@@ -63,7 +63,12 @@
       const currentTheme = root.getAttribute('data-ai-sp-theme') === 'dark' ? 'dark' : 'light';
       sessionStorage.setItem(THEME_SNAPSHOT_KEY, currentTheme);
     } catch (e) {}
-    window.location.href = chrome.runtime.getURL(resolvePagePath(pagePath));
+    const nextUrl = chrome.runtime.getURL(resolvePagePath(pagePath));
+    if (root.getAttribute('data-embedded') === '1' && window.top && window.top !== window) {
+      window.top.location.href = nextUrl;
+      return;
+    }
+    window.location.href = nextUrl;
   };
 
   try {
