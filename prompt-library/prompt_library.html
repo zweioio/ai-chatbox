@@ -26,12 +26,14 @@
     <div class="pl-hero">
       <div class="pl-hero-copy">
         <h1>提示词</h1>
-        <p>重做为更完整的提示词中心，支持搜索、图标、变量插入、复制、导入导出和快速编辑。</p>
+        <div class="pl-hero-meta">
+          <p>重做为更完整的提示词中心，支持搜索、图标、变量插入、复制、导入导出和快速编辑</p>
+          <span id="pl-status-text" class="pl-hero-status">已同步</span>
+        </div>
       </div>
       <div class="pl-actions">
         <button id="pl-import-btn">导入 JSON</button>
         <button id="pl-export-btn">导出 JSON</button>
-        <button id="pl-save-btn" class="primary">保存全部修改</button>
       </div>
     </div>
     <input id="pl-import-input" type="file" accept="application/json" hidden />
@@ -41,7 +43,6 @@
       </div>
       <div class="pl-summary">
         <span id="pl-count-text">0 条提示词</span>
-        <span id="pl-status-text">已同步</span>
       </div>
     </div>
     <div class="pl-variables">
@@ -76,7 +77,10 @@
       <div class="pl-editor-head">
         <div>
           <strong id="pl-editor-title">新建提示词</strong>
-          <p>支持图标、变量和实时预览</p>
+          <div class="pl-editor-meta">
+            <p>支持图标、变量和实时预览</p>
+            <span id="pl-editor-note" class="pl-editor-note" hidden>系统内置提示词暂不支持编辑</span>
+          </div>
         </div>
         <button id="pl-editor-close" class="pl-icon-btn">✕</button>
       </div>
@@ -131,6 +135,23 @@
           <button id="pl-editor-cancel" type="button">取消</button>
           <button id="pl-editor-save" class="primary" type="button">保存提示词</button>
         </div>
+      </div>
+    </div>
+  </div>
+  <div id="pl-confirm-mask" class="pl-confirm-mask" hidden>
+    <div class="pl-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="pl-confirm-title">
+      <div class="pl-confirm-head">
+        <div class="pl-confirm-icon-wrap">
+          <img src="../icons/delete.svg" alt="">
+        </div>
+        <div class="pl-confirm-copy">
+          <strong id="pl-confirm-title">删除提示词</strong>
+          <p id="pl-confirm-text">确认删除当前提示词吗？删除后无法恢复。</p>
+        </div>
+      </div>
+      <div class="pl-confirm-actions">
+        <button id="pl-confirm-cancel" type="button">取消</button>
+        <button id="pl-confirm-submit" class="pl-danger-btn" type="button">删除</button>
       </div>
     </div>
   </div>

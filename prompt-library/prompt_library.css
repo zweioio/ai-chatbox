@@ -170,17 +170,36 @@ button {
 }
 
 .pl-hero h1 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 28px;
   line-height: 1.2;
   color: var(--pl-text);
 }
 
 .pl-hero p {
-  margin: 0;
+  margin: 8px 0 0;
+  font-size: 14px;
   max-width: 620px;
   line-height: 1.6;
   color: var(--pl-text-secondary);
+}
+
+.pl-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  align-content: stretch;
+  flex-direction: row;
+  justify-content: space-evenly;
+}
+
+.pl-hero-status {
+  display: inline-flex;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #3b82f6;
+  margin: 8px 0 0;
 }
 
 .pl-actions {
@@ -292,10 +311,6 @@ button {
   white-space: nowrap;
 }
 
-.pl-summary span:last-child {
-  color: #3b82f6;
-}
-
 .pl-variables {
   margin-top: 24px;
   padding: 0;
@@ -355,6 +370,17 @@ button {
 .pl-variable-chip:hover {
   background: var(--pl-hover);
   border-color: var(--pl-border);
+}
+
+.pl-inline-tools.is-readonly .pl-variable-chip {
+  cursor: not-allowed;
+  opacity: 0.56;
+  pointer-events: none;
+}
+
+.pl-inline-tools.is-readonly .pl-variable-chip:hover {
+  background: #f2f2f2;
+  border-color: transparent;
 }
 
 .pl-variable-chip::after {
@@ -509,6 +535,11 @@ button {
   display: block;
 }
 
+.pl-card-icon-button[data-action="delete"] img {
+  width: 20px;
+  height: 20px;
+}
+
 .pl-card-action-tip {
   position: absolute;
   left: 50%;
@@ -657,6 +688,75 @@ button {
   display: none;
 }
 
+.pl-confirm-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  z-index: 1100;
+}
+
+.pl-confirm-mask[hidden] {
+  display: none;
+}
+
+.pl-confirm-dialog {
+  width: min(420px, 100%);
+  border: 1px solid var(--pl-border);
+  border-radius: 16px;
+  background: var(--pl-card);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+  padding: 20px;
+}
+
+.pl-confirm-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.pl-confirm-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--pl-danger-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.pl-confirm-icon-wrap img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.pl-confirm-copy strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--pl-text);
+}
+
+.pl-confirm-copy p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--pl-text-secondary);
+}
+
+.pl-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
 .pl-editor {
   width: min(760px, 100%);
   max-height: calc(100vh - 48px);
@@ -686,9 +786,22 @@ button {
 
 .pl-editor-head p {
   margin: 0;
-  padding-top: 4px;
   color: var(--pl-text-secondary);
   font-size: 12px;
+}
+
+.pl-editor-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.pl-editor-note {
+  display: inline-flex;
+  font-size: 12px;
+  color: #3b82f6;
 }
 
 .pl-icon-btn {
@@ -708,7 +821,7 @@ button {
 }
 
 .pl-editor-body {
-  padding: 12px;
+  padding: 12px 16px;
   overflow-y: auto;
   max-height: calc(100vh - 220px);
 }
@@ -744,6 +857,14 @@ button {
   padding: 0 12px;
 }
 
+.pl-input:disabled,
+.pl-textarea:disabled {
+  background: var(--pl-soft-2);
+  border-color: var(--pl-border);
+  color: var(--pl-text-secondary);
+  cursor: not-allowed;
+}
+
 .pl-icon-field {
   position: relative;
 }
@@ -758,6 +879,13 @@ button {
   align-items: center;
   justify-content: flex-start;
   padding: 0 10px;
+}
+
+.pl-icon-trigger:disabled {
+  background: var(--pl-soft-2);
+  border-color: var(--pl-border);
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .pl-card-icon-picker {
@@ -896,6 +1024,7 @@ button {
 .pl-checkbox.is-disabled {
   color: var(--pl-text-secondary);
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 .pl-checkbox.is-disabled .pl-checkbox-indicator {

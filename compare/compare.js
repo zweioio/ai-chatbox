@@ -66,14 +66,13 @@
 
   const defaultEnabled = Object.keys(AI_PLATFORMS);
   const preferredEnabled = enabled.length ? enabled : defaultEnabled;
-  const initPlatforms = initial.length ? initial : preferredEnabled.slice(0, 2);
+  const initPlatforms = initial.length ? initial : preferredEnabled.slice(0, 1);
 
   const queryTitleEl = document.getElementById("cmp-query-title");
   const restoreSummaryEl = document.getElementById("cmp-restore-summary");
   const selectEl = document.getElementById("cmp-platform-select");
   const addBtn = document.getElementById("cmp-add-btn");
   const favoriteBtn = document.getElementById("cmp-favorite-btn");
-  const exportBtn = document.getElementById("cmp-export-btn");
   const countEl = document.getElementById("cmp-count");
   const refreshBtn = document.getElementById("cmp-refresh-btn");
   const panelEl = document.getElementById("cmp-panel");
@@ -83,12 +82,13 @@
   const toastEl = document.getElementById("cmp-toast");
   const grid = document.getElementById("cmp-grid");
   const bodyEl = document.getElementById("cmp-body");
+  const memoBtn = document.getElementById("cmp-memo-btn");
   const settingsBtn = document.getElementById("cmp-settings-btn");
   const themeBtn = document.getElementById("cmp-theme-btn");
   const legendFilterEls = Array.from(document.querySelectorAll(".cmp-tag-filter"));
   const legendDescEl = document.getElementById("cmp-legend-desc");
   const diffListEl = document.getElementById("cmp-diff-list");
-  const minPanes = 2;
+  const minPanes = 1;
   const maxPanes = 4;
   const paneSummaries = new Map();
   const paneStates = new Map();
@@ -111,6 +111,7 @@
   let draggingPaneId = "";
   let paneOrderSeed = 1;
   let currentTheme = hash.get("theme") === "dark" ? "dark" : (localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light");
+  let lastSubmittedQuery = query;
   const themeMedia = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   const ENABLE_DRAG_REORDER = true;
   const DIFF_SUMMARY_MAX_RETRIES = 4;
@@ -129,10 +130,10 @@
   const dragIconUrl = chrome.runtime.getURL("icons/drag.svg");
   const closeIconUrl = chrome.runtime.getURL("icons/close.svg");
   const webIconUrl = chrome.runtime.getURL("icons/web.svg");
+  const memoIconUrl = chrome.runtime.getURL("icons/add-to-memo.svg");
   const moveLeftIconUrl = chrome.runtime.getURL("icons/platform-arrow-left.svg");
   const moveRightIconUrl = chrome.runtime.getURL("icons/platform-arrow-right.svg");
-  const compareRefreshIconUrl = chrome.runtime.getURL("icons/compare-refresh.svg");
-  const retryIconUrl = chrome.runtime.getURL("icons/retry.svg");
+  const compareRefreshIconUrl = chrome.runtime.getURL("icons/window-retry.svg");
 
   if (queryTitleEl) queryTitleEl.textContent = query || "内容对比";
   if (globalInputEl) globalInputEl.value = query;
@@ -202,31 +203,147 @@
     return lines.join("\n");
   }
 
+  function deriveMemoTitle(text) {
+    const normalized = normalizeText(text).replace(/\s+/g, " ").trim();
+    if (!normalized || normalized === "内容对比") {
+      return "";
+    }
+    const sentence = normalized.split(/(?<=[。！？!?])\s|[\n\r]+/u).find(Boolean) || normalized;
+    return sentence.slice(0, 80).trim();
+  }
+
+  function deriveMemoTitleFromSummary(summary) {
+    const normalized = normalizeText(summary).replace(/\s+/g, " ").trim();
+    if (!normalized) return "";
+    return deriveMemoTitle(normalized) || normalized.slice(0, 80).trim();
+  }
+
+  function extractQuestionFromPaneUrls(panes = getPaneExportPayload()) {
+    for (const pane of panes) {
+      const urlText = pane?.url || "";
+      if (!urlText) continue;
+      const hashMatch = urlText.match(/#q=([^&]+)/);
+      if (!hashMatch) continue;
+      const decoded = normalizeText(decodeURIComponent(hashMatch[1] || ""));
+      if (decoded && decoded !== "内容对比") return decoded;
+    }
+    return "";
+  }
+
+  function resolveCompareQueryText() {
+    const panes = getPaneExportPayload();
+    const candidate = normalizeText(lastSubmittedQuery || query || globalInputEl?.value || queryTitleEl?.textContent || extractQuestionFromPaneUrls(panes) || "");
+    return candidate === "内容对比" ? extractQuestionFromPaneUrls(panes) : candidate;
+  }
+
   async function saveFavoriteRecord() {
     const data = await chrome.storage.local.get([FAVORITES_STORAGE_KEY]);
     const list = Array.isArray(data?.[FAVORITES_STORAGE_KEY]) ? data[FAVORITES_STORAGE_KEY] : [];
-    const record = {
-      id: makeRequestId(),
-      title: query || "未命名问题",
-      query,
-      createdAt: Date.now(),
-      panes: getPaneExportPayload(),
-      markdown: buildCompareMarkdown()
-    };
-    await chrome.storage.local.set({ [FAVORITES_STORAGE_KEY]: [record, ...list].slice(0, 100) });
+    const question = resolveCompareQueryText();
+    const createdAt = Date.now();
+    const records = getPaneExportPayload()
+      .filter((pane) => String(pane.summary || "").trim())
+      .map((pane) => ({
+        id: makeRequestId(),
+        type: "compare",
+        sourceLabel: "内容对比",
+        title: deriveMemoTitle(question) || deriveMemoTitleFromSummary(pane.summary || "") || "未命名问题",
+        query: question,
+        createdAt,
+        activePlatformName: pane.platformName || pane.platform || "AI",
+        panes: [pane],
+        messages: [
+          ...(question ? [{
+            role: "user",
+            label: "用户",
+            content: question
+          }] : []),
+          {
+            role: "ai",
+            label: pane.platformName || pane.platform || "AI",
+            content: pane.summary || "",
+            platform: pane.platform
+          }
+        ],
+        markdown: [
+          question ? `# ${question}` : "",
+          `## ${pane.platformName || pane.platform || "AI"}`,
+          pane.summary || ""
+        ].filter(Boolean).join("\n\n")
+      }));
+    if (!records.length) return 0;
+    await chrome.storage.local.set({ [FAVORITES_STORAGE_KEY]: [...records, ...list].slice(0, 100) });
+    return records.length;
   }
 
-  function exportMarkdownFile() {
-    const content = buildCompareMarkdown();
-    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${(query || "内容对比").slice(0, 24)}.md`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+  async function saveSinglePaneFavorite(pane) {
+    if (!pane) return false;
+    const data = await chrome.storage.local.get([FAVORITES_STORAGE_KEY]);
+    const list = Array.isArray(data?.[FAVORITES_STORAGE_KEY]) ? data[FAVORITES_STORAGE_KEY] : [];
+    const paneId = pane.dataset.paneId;
+    let payload = getPaneExportPayload().find((entry) => entry.paneId === paneId);
+    if (!payload || !String(payload.summary || "").trim()) {
+      await ensurePaneSummaryReady(pane);
+      payload = getPaneExportPayload().find((entry) => entry.paneId === paneId);
+    }
+    if (!payload || !String(payload.summary || "").trim()) return false;
+    const question = resolveCompareQueryText() || extractQuestionFromPaneUrls([payload]);
+    const record = {
+      id: makeRequestId(),
+      type: "compare",
+      sourceLabel: "内容对比",
+      title: deriveMemoTitle(question) || deriveMemoTitleFromSummary(payload.summary || "") || "未命名问题",
+      query: question,
+      createdAt: Date.now(),
+      activePlatformName: payload.platformName || payload.platform || "AI",
+      panes: [payload],
+      messages: [
+        ...(question ? [{
+          role: "user",
+          label: "用户",
+          content: question
+        }] : []),
+        {
+          role: "ai",
+          label: payload.platformName || payload.platform || "AI",
+          content: payload.summary || "",
+          platform: payload.platform
+        }
+      ],
+      markdown: [
+        question ? `# ${question}` : "",
+        `## ${payload.platformName || payload.platform || "AI"}`,
+        payload.summary || ""
+      ].filter(Boolean).join("\n\n")
+    };
+    await chrome.storage.local.set({ [FAVORITES_STORAGE_KEY]: [record, ...list].slice(0, 100) });
+    return true;
+  }
+
+  function ensurePaneSummaryReady(pane) {
+    const paneId = pane?.dataset?.paneId;
+    if (!paneId) return Promise.resolve("");
+    const existing = normalizeText(paneSummaries.get(paneId) || "");
+    if (existing.length >= MIN_VALID_SUMMARY_LENGTH) return Promise.resolve(existing);
+    return new Promise((resolve) => {
+      const requestId = requestPaneSummary(pane, 0, "diff", 1, 2500);
+      if (!requestId) {
+        resolve("");
+        return;
+      }
+      const timer = window.setTimeout(() => {
+        window.removeEventListener("message", onMessage);
+        resolve(normalizeText(paneSummaries.get(paneId) || ""));
+      }, 900);
+      const onMessage = (event) => {
+        const data = event.data || {};
+        if (data.type !== "AI_SEARCH_PRO_SUMMARY" || data.requestId !== requestId) return;
+        window.removeEventListener("message", onMessage);
+        window.clearTimeout(timer);
+        resolve(normalizeText(data.summary || ""));
+      };
+      window.addEventListener("message", onMessage);
+    });
   }
 
   function applyTheme(theme) {
@@ -599,7 +716,8 @@
 
   function refreshGridCols() {
     const count = grid.children.length;
-    grid.classList.remove("cols-3", "cols-4");
+    grid.classList.remove("cols-1", "cols-3", "cols-4");
+    if (count === 1) grid.classList.add("cols-1");
     if (count >= 4) grid.classList.add("cols-4");
     else if (count === 3) grid.classList.add("cols-3");
     updateArrowButtonsState();
@@ -654,40 +772,14 @@
 
   function updateRestoreSummary() {
     if (!restoreSummaryEl) return;
-    let restored = 0;
-    let fallback = 0;
-    let restoring = 0;
-    paneStates.forEach(v => {
-      if (v.status === "restored") restored += 1;
-      else if (v.status === "fallback") fallback += 1;
-      else restoring += 1;
-    });
-    restoreSummaryEl.innerHTML = `
-      <span class="cmp-summary-item restored"><span class="cmp-status-dot"></span>已继承 ${restored}</span>
-      <span class="cmp-summary-sep">·</span>
-      <span class="cmp-summary-item fallback"><span class="cmp-status-dot"></span>回退 ${fallback}</span>
-      <span class="cmp-summary-sep">·</span>
-      <span class="cmp-summary-item restoring"><span class="cmp-status-dot"></span>处理中 ${restoring}</span>
-    `;
+    restoreSummaryEl.innerHTML = "";
+    restoreSummaryEl.style.display = "none";
   }
 
   function setPaneState(pane, status, reason = "", source = "") {
     const paneId = pane.dataset.paneId;
     const old = paneStates.get(paneId) || {};
     paneStates.set(paneId, { ...old, status, reason, source });
-    const badge = pane.querySelector(".cmp-pane-status");
-    const retryBtn = pane.querySelector(".cmp-pane-retry");
-    if (badge) {
-      badge.className = `cmp-pane-status ${status}`;
-      const label = status === "restored" ? "已继承" : status === "fallback" ? "已回退" : "继承中";
-      badge.setAttribute("aria-label", label);
-      badge.title = reason || "";
-      const tip = badge.querySelector(".cmp-tooltip");
-      if (tip) tip.textContent = label;
-    }
-    if (retryBtn) {
-      retryBtn.style.display = status === "fallback" ? "inline-flex" : "none";
-    }
     updateRestoreSummary();
   }
 
@@ -1000,6 +1092,7 @@
     const q = normalizeText(text);
     if (!q) return;
     query = q;
+    lastSubmittedQuery = q;
     if (queryTitleEl) queryTitleEl.textContent = q;
     const requestId = makeRequestId();
     const expected = new Set();
@@ -1069,15 +1162,14 @@
     sel.value = finalPlatform;
     selectWrap.appendChild(sel);
 
-    const status = document.createElement("span");
-    status.className = "cmp-pane-status restoring";
-    status.setAttribute("aria-label", "继承中");
-    status.innerHTML = `<span class="cmp-tooltip">继承中</span>`;
+    const memoBtn = document.createElement("button");
+    memoBtn.className = "cmp-pane-btn cmp-pane-btn-memo";
+    memoBtn.innerHTML = `<img src="${memoIconUrl}" alt="memo" width="18" height="18" /><span class="cmp-tooltip">添加到备忘录</span>`;
 
     const retryBtn = document.createElement("button");
     retryBtn.className = "cmp-pane-retry";
-    retryBtn.innerHTML = `<img src="${retryIconUrl}" alt="retry" width="18" height="18" /><span class="cmp-tooltip">重试</span>`;
-    retryBtn.style.display = "none";
+    retryBtn.innerHTML = `<img src="${compareRefreshIconUrl}" alt="refresh" width="18" height="18" /><span class="cmp-tooltip">刷新页面</span>`;
+    retryBtn.style.display = "inline-flex";
 
     const moveLeftBtn = document.createElement("button");
     moveLeftBtn.className = "cmp-pane-btn cmp-pane-btn-left";
@@ -1121,8 +1213,20 @@
       setPaneState(pane, "restoring");
     });
 
+    memoBtn.addEventListener("click", async () => {
+      const ok = await saveSinglePaneFavorite(pane);
+      showToast(ok ? "已添加到备忘录" : "当前窗口暂无可保存内容");
+    });
+
     retryBtn.addEventListener("click", () => {
-      startRestoreForPane(pane, true);
+      let currentSrc = iframe.src;
+      try {
+        currentSrc = iframe.contentWindow?.location?.href || currentSrc;
+      } catch (error) {}
+      if (!currentSrc) return;
+      iframe.src = currentSrc;
+      paneSummaries.delete(pane.dataset.paneId);
+      setPaneState(pane, "restoring");
     });
 
     moveLeftBtn.addEventListener("click", () => {
@@ -1208,10 +1312,10 @@
 
     headMain.appendChild(dragBtn);
     headMain.appendChild(selectWrap);
-    headMain.appendChild(status);
-    headActions.appendChild(retryBtn);
     headActions.appendChild(moveLeftBtn);
     headActions.appendChild(moveRightBtn);
+    headActions.appendChild(memoBtn);
+    headActions.appendChild(retryBtn);
     headActions.appendChild(openBtn);
     headActions.appendChild(removeBtn);
     head.appendChild(headMain);
@@ -1295,17 +1399,16 @@
     });
   }
 
-  if (favoriteBtn) {
-    favoriteBtn.addEventListener("click", async () => {
-      await saveFavoriteRecord();
-      showToast("已保存到备忘录");
+  if (memoBtn) {
+    memoBtn.addEventListener("click", () => {
+      openExtensionPage("favorites/favorites.html");
     });
   }
 
-  if (exportBtn) {
-    exportBtn.addEventListener("click", () => {
-      exportMarkdownFile();
-      showToast("已导出 Markdown");
+  if (favoriteBtn) {
+    favoriteBtn.addEventListener("click", async () => {
+      const count = await saveFavoriteRecord();
+      showToast(count > 1 ? `已保存 ${count} 条备忘录` : (count === 1 ? "已保存到备忘录" : "暂无可保存内容"));
     });
   }
 

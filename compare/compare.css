@@ -310,6 +310,10 @@ html, body {
   grid-auto-rows: minmax(0, 1fr);
 }
 
+.cmp-grid.cols-1 {
+  grid-template-columns: 400px;
+}
+
 .cmp-grid.cols-3 {
   grid-template-columns: repeat(3, minmax(180px, 400px));
 }

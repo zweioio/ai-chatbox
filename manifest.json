@@ -9,7 +9,8 @@
     "scripting",
     "sidePanel",
     "declarativeNetRequest",
-    "contextMenus"
+    "contextMenus",
+    "downloads"
   ],
   "host_permissions": [
     "<all_urls>",

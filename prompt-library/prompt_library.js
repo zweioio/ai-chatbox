@@ -25,7 +25,6 @@
   ];
   const listEl = document.getElementById('pl-list');
   const addBtn = document.getElementById('pl-add-btn');
-  const saveBtn = document.getElementById('pl-save-btn');
   const exportBtn = document.getElementById('pl-export-btn');
   const importBtn = document.getElementById('pl-import-btn');
   const importInput = document.getElementById('pl-import-input');
@@ -36,10 +35,16 @@
   const resetBtn = document.getElementById('pl-reset-btn');
   const editorMask = document.getElementById('pl-editor-mask');
   const editorTitle = document.getElementById('pl-editor-title');
+  const editorNote = document.getElementById('pl-editor-note');
   const editorClose = document.getElementById('pl-editor-close');
   const editorCancel = document.getElementById('pl-editor-cancel');
   const editorSave = document.getElementById('pl-editor-save');
   const editorDelete = document.getElementById('pl-editor-delete');
+  const confirmMask = document.getElementById('pl-confirm-mask');
+  const confirmTitle = document.getElementById('pl-confirm-title');
+  const confirmText = document.getElementById('pl-confirm-text');
+  const confirmCancel = document.getElementById('pl-confirm-cancel');
+  const confirmSubmit = document.getElementById('pl-confirm-submit');
   const openSettingsBtn = document.getElementById('pl-open-settings-btn');
   const openMemoBtn = document.getElementById('pl-open-memo-btn');
   const openCompareBtn = document.getElementById('pl-open-compare-btn');
@@ -51,11 +56,13 @@
   const formTemplate = document.getElementById('pl-form-template');
   const formEnabled = document.getElementById('pl-form-enabled');
   const previewText = document.getElementById('pl-preview-text');
+  const inlineTools = document.querySelector('.pl-inline-tools');
   let prompts = [];
   let keyword = '';
   let dirty = false;
   let editingId = '';
   let iconPickerOpen = false;
+  let confirmResolver = null;
   const themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
   function makeId() {
@@ -123,6 +130,10 @@
     return LOCKED_PROMPT_IDS.includes(id);
   }
 
+  function isBuiltInPrompt(id) {
+    return DEFAULT_PROMPTS.some((item) => item.id === id);
+  }
+
   function normalize(list) {
     const merged = [];
     const seen = new Set();
@@ -163,7 +174,10 @@
   function setDirty(nextDirty, text = '') {
     dirty = nextDirty;
     statusText.textContent = text || (dirty ? '有未保存修改' : '已同步');
-    saveBtn.disabled = !dirty;
+  }
+
+  function setSavingStatus(text = '正在保存...') {
+    statusText.textContent = text;
   }
 
   function formatTime(ts) {
@@ -238,6 +252,12 @@
             <img src="../icons/edit.svg" alt="" />
             <span class="pl-card-action-tip">编辑</span>
           </button>
+          ${isBuiltInPrompt(item.id) ? '' : `
+          <button class="pl-card-icon-button" type="button" data-action="delete" aria-label="删除提示词">
+            <img src="../icons/delete.svg" alt="" />
+            <span class="pl-card-action-tip">删除</span>
+          </button>
+          `}
         </div>
         <div class="pl-card-body">
           <p class="pl-card-preview">${escapeHtml(item.template)}</p>
@@ -304,28 +324,55 @@
   function openEditor(id = '') {
     editingId = id;
     const item = prompts.find((prompt) => prompt.id === id);
+    const builtIn = isBuiltInPrompt(item?.id);
     editorTitle.textContent = item ? '编辑提示词' : '新建提示词';
     formTitle.value = item?.title || '';
     formIconKey.value = resolvePromptIconKey(item || { id });
     formTemplate.value = item?.template || '';
     formEnabled.checked = item ? item.enabled !== false : true;
-    formEnabled.disabled = isLockedPrompt(item?.id);
-    formEnabled.closest('.pl-checkbox')?.classList.toggle('is-disabled', isLockedPrompt(item?.id));
-    editorDelete.hidden = !item;
+    formEnabled.disabled = builtIn || isLockedPrompt(item?.id);
+    formEnabled.closest('.pl-checkbox')?.classList.toggle('is-disabled', builtIn || isLockedPrompt(item?.id));
+    formTitle.disabled = builtIn;
+    formTemplate.disabled = builtIn;
+    formIconTrigger.disabled = builtIn;
+    editorDelete.hidden = !item || builtIn;
+    editorSave.hidden = false;
+    editorSave.disabled = builtIn;
+    editorNote.hidden = !builtIn;
+    inlineTools?.classList.toggle('is-readonly', builtIn);
     editorMask.hidden = false;
     updateIconPreview();
     setIconPickerOpen(false);
     renderPreview();
-    setTimeout(() => formTitle.focus(), 0);
+    setTimeout(() => {
+      if (builtIn) {
+        editorClose.focus();
+        return;
+      }
+      formTitle.focus();
+    }, 0);
   }
 
   function closeEditor() {
     editingId = '';
     setIconPickerOpen(false);
+    formTitle.disabled = false;
+    formTemplate.disabled = false;
+    formIconTrigger.disabled = false;
+    formEnabled.disabled = false;
+    formEnabled.closest('.pl-checkbox')?.classList.remove('is-disabled');
+    editorSave.hidden = false;
+    editorSave.disabled = false;
+    editorDelete.hidden = true;
+    editorNote.hidden = true;
+    inlineTools?.classList.remove('is-readonly');
     editorMask.hidden = true;
   }
 
-  function upsertPromptFromForm() {
+  async function upsertPromptFromForm() {
+    if (editingId && isBuiltInPrompt(editingId)) {
+      return false;
+    }
     const title = formTitle.value.trim();
     const template = formTemplate.value.trim();
     if (!title || !template) {
@@ -362,8 +409,9 @@
     }
     prompts = normalize(prompts);
     closeEditor();
-    setDirty(true, '已修改，请保存');
     render();
+    setSavingStatus('正在保存...');
+    await persist('已自动保存');
     return true;
   }
 
@@ -374,15 +422,16 @@
     render();
   }
 
-  function restoreDefaults() {
+  async function restoreDefaults() {
     const builtInIds = new Set(DEFAULT_PROMPTS.map((item) => item.id));
     const customPrompts = prompts.filter((item) => !builtInIds.has(item.id));
     prompts = normalize([
       ...DEFAULT_PROMPTS.map(createDefaultPrompt),
       ...customPrompts
     ]);
-    setDirty(true, '已恢复内置默认提示词，请保存');
     render();
+    setSavingStatus('正在保存...');
+    await persist('已恢复内置默认提示词');
   }
 
   async function copyPromptContent(id) {
@@ -392,7 +441,7 @@
     setDirty(dirty, '提示词内容已复制');
   }
 
-  function togglePrompt(id) {
+  async function togglePrompt(id) {
     if (isLockedPrompt(id)) {
       setDirty(dirty, '基础提示词不可关闭');
       return;
@@ -402,8 +451,52 @@
       enabled: !item.enabled,
       updatedAt: Date.now()
     } : item);
-    setDirty(true, '已修改启用状态，请保存');
     render();
+    setSavingStatus('正在保存...');
+    await persist('已修改启用状态');
+  }
+
+  function openConfirmDialog({
+    title,
+    text,
+    confirmTextValue = '删除'
+  }) {
+    if (!confirmMask || !confirmTitle || !confirmText || !confirmSubmit) {
+      return Promise.resolve(false);
+    }
+    confirmTitle.textContent = title;
+    confirmText.textContent = text;
+    confirmSubmit.textContent = confirmTextValue;
+    confirmMask.hidden = false;
+    return new Promise((resolve) => {
+      confirmResolver = resolve;
+    });
+  }
+
+  function closeConfirmDialog(result) {
+    if (!confirmMask) return;
+    confirmMask.hidden = true;
+    const resolver = confirmResolver;
+    confirmResolver = null;
+    resolver?.(result);
+  }
+
+  async function deletePrompt(id) {
+    const item = prompts.find((prompt) => prompt.id === id);
+    if (!item || isBuiltInPrompt(id)) return;
+    const confirmed = await openConfirmDialog({
+      title: '删除提示词',
+      text: `确认删除提示词“${item.title}”吗？删除后无法恢复。`,
+      confirmTextValue: '删除'
+    });
+    if (!confirmed) return;
+    prompts = prompts.filter((prompt) => prompt.id !== id);
+    if (editingId === id) {
+      closeEditor();
+    }
+    render();
+    setSavingStatus('正在保存...');
+    await persist('已删除');
   }
 
   function parseImport(text) {
@@ -415,7 +508,7 @@
     openEditor();
   });
 
-  listEl.addEventListener('click', (event) => {
+  listEl.addEventListener('click', async (event) => {
     const card = event.target.closest('.pl-card');
     const id = card?.dataset.id;
     if (!id) return;
@@ -428,13 +521,13 @@
       copyPromptContent(id);
       return;
     }
-    if (event.target.closest('[data-action="toggle-enabled"]')) {
-      togglePrompt(id);
+    if (action === 'delete') {
+      await deletePrompt(id);
+      return;
     }
-  });
-
-  saveBtn.addEventListener('click', async () => {
-    await persist();
+    if (event.target.closest('[data-action="toggle-enabled"]')) {
+      await togglePrompt(id);
+    }
   });
 
   exportBtn.addEventListener('click', async () => {
@@ -462,8 +555,8 @@
     importInput.value = '';
   });
 
-  resetBtn.addEventListener('click', () => {
-    restoreDefaults();
+  resetBtn.addEventListener('click', async () => {
+    await restoreDefaults();
   });
 
   searchInput.addEventListener('input', () => {
@@ -476,12 +569,15 @@
   editorSave.addEventListener('click', () => {
     upsertPromptFromForm();
   });
-  editorDelete.addEventListener('click', () => {
+  editorDelete.addEventListener('click', async () => {
     if (!editingId) return;
-    prompts = prompts.filter((item) => item.id !== editingId);
-    closeEditor();
-    setDirty(true, '已删除，请保存');
-    render();
+    await deletePrompt(editingId);
+  });
+
+  confirmCancel?.addEventListener('click', () => closeConfirmDialog(false));
+  confirmSubmit?.addEventListener('click', () => closeConfirmDialog(true));
+  confirmMask?.addEventListener('click', (event) => {
+    if (event.target === confirmMask) closeConfirmDialog(false);
   });
 
   editorMask.addEventListener('click', (event) => {

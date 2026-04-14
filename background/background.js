@@ -1,6 +1,7 @@
 // background/background.js
 
 const sidePanelStates = new Map();
+const pendingDownloadFilenames = new Map();
 const CONFIG_STORAGE_KEY = "aiSearchProConfig";
 const SIDEPANEL_CONTEXT_ACTION_STORAGE_KEY = "aiSearchProSidepanelContextAction";
 const FLOATING_CONTEXT_ACTION_STORAGE_KEY = "aiSearchProFloatingContextAction";
@@ -20,6 +21,13 @@ if (chrome.sidePanel && typeof chrome.sidePanel.setPanelBehavior === "function")
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 }
 setupContextMenus();
+
+chrome.downloads?.onDeterminingFilename?.addListener((item, suggest) => {
+  const filename = pendingDownloadFilenames.get(item.id);
+  if (!filename) return;
+  pendingDownloadFilenames.delete(item.id);
+  suggest({ filename, conflictAction: "uniquify" });
+});
 
 function getDefaultSidePanelState(tabId, url = "about:blank") {
   return {
@@ -407,6 +415,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       await broadcastSidePanelState(tabId);
       sendResponse({ ok: true, state });
+      return;
+    }
+
+    if (message?.type === "DOWNLOAD_DATA_URL") {
+      if (typeof message.url !== "string" || !message.url) {
+        sendResponse({ ok: false, error: "missing_url" });
+        return;
+      }
+      const filename = String(message.filename || "download.png");
+      const downloadId = await chrome.downloads.download({
+        url: message.url,
+        filename,
+        saveAs: message.saveAs !== false
+      });
+      pendingDownloadFilenames.set(downloadId, filename);
+      sendResponse({ ok: true, downloadId });
       return;
     }
 

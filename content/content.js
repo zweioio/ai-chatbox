@@ -1933,6 +1933,24 @@
           active: platformKey === currentPlatform
         };
       });
+      const messages = [];
+      if (activeQuery) {
+        messages.push({
+          role: 'user',
+          label: '用户',
+          content: activeQuery
+        });
+      }
+      panes.forEach((pane) => {
+        if (!String(pane.summary || '').trim()) return;
+        messages.push({
+          role: 'ai',
+          label: pane.platformName || pane.platform || 'AI',
+          content: pane.summary || '',
+          platform: pane.platform,
+          active: pane.active === true
+        });
+      });
       return {
         id: makeSessionRecordId(),
         type: 'session',
@@ -1944,7 +1962,8 @@
         currentPlatform,
         activePlatformName: AI_PLATFORMS[currentPlatform]?.name || currentPlatform,
         sourceUrl: window.location.href,
-        panes
+        panes,
+        messages
       };
     };
 

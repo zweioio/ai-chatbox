@@ -305,6 +305,24 @@ async function collectSessionSnapshot(sourceLabel) {
       active: platformKey === currentPlatform
     };
   });
+  const messages = [];
+  if (currentQuery) {
+    messages.push({
+      role: 'user',
+      label: '用户',
+      content: currentQuery
+    });
+  }
+  panes.forEach((pane) => {
+    if (!String(pane.summary || '').trim()) return;
+    messages.push({
+      role: 'ai',
+      label: pane.platformName || pane.platform || 'AI',
+      content: pane.summary || '',
+      platform: pane.platform,
+      active: pane.active === true
+    });
+  });
   return {
     id: makeSessionRecordId(),
     type: 'session',
@@ -315,7 +333,8 @@ async function collectSessionSnapshot(sourceLabel) {
     createdAt: Date.now(),
     currentPlatform,
     activePlatformName: AI_PLATFORMS[currentPlatform]?.name || currentPlatform,
-    panes
+    panes,
+    messages
   };
 }
 

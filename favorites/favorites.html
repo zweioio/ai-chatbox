@@ -22,7 +22,7 @@
       </div>
     </div>
   </div>
-  <div class="fav-wrap">
+  <div id="fav-list-page" class="fav-wrap">
     <div class="fav-head">
       <div>
         <h1>备忘录</h1>
@@ -31,6 +31,71 @@
     </div>
     <div id="fav-list" class="fav-list"></div>
   </div>
+  <div id="fav-detail-page" class="fav-detail-page" hidden>
+    <div class="fav-detail-shell">
+      <div class="fav-detail-topbar">
+        <button id="fav-detail-close" class="fav-detail-back-btn" type="button">
+          <img src="../icons/settings-back.svg" alt="">
+          <span>返回备忘录</span>
+        </button>
+        <div class="fav-detail-topbar-actions">
+          <div class="fav-width-switch" role="group" aria-label="阅读宽度">
+            <button type="button" class="fav-width-btn" data-reader-width="480">紧凑</button>
+            <button type="button" class="fav-width-btn is-active" data-reader-width="760">标准</button>
+            <button type="button" class="fav-width-btn" data-reader-width="920">宽松</button>
+          </div>
+          <button id="fav-detail-export" class="fav-detail-action-btn" type="button">导出</button>
+          <button id="fav-detail-delete" class="fav-detail-icon-btn" type="button" aria-label="删除备忘录">
+            <img src="../icons/delete.svg" alt="">
+            <span class="fav-detail-icon-tip">删除</span>
+          </button>
+        </div>
+      </div>
+      <div id="fav-detail-body" class="fav-detail-body"></div>
+    </div>
+  </div>
+  <div id="fav-confirm-mask" class="fav-confirm-mask" hidden>
+    <div class="fav-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="fav-confirm-title">
+      <div class="fav-confirm-head">
+        <div class="fav-confirm-icon">
+          <img src="../icons/delete.svg" alt="">
+        </div>
+        <div class="fav-confirm-copy">
+          <strong id="fav-confirm-title">删除备忘录</strong>
+          <p id="fav-confirm-text">确认删除当前备忘录吗？删除后无法恢复。</p>
+        </div>
+      </div>
+      <div class="fav-confirm-actions">
+        <button id="fav-confirm-cancel" class="fav-detail-action-btn" type="button">取消</button>
+        <button id="fav-confirm-submit" class="fav-detail-icon-btn" type="button" aria-label="确认删除">
+          <img src="../icons/delete.svg" alt="">
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="fav-export-mask" class="fav-export-mask" hidden>
+    <div class="fav-export-dialog" role="dialog" aria-modal="true" aria-labelledby="fav-export-title">
+      <div class="fav-export-head">
+        <div>
+          <strong id="fav-export-title">导出对话图片</strong>
+          <p id="fav-export-status">预览生成后可下载图片</p>
+        </div>
+        <button id="fav-export-close" class="pl-icon-btn" type="button">✕</button>
+      </div>
+      <div class="fav-export-preview">
+        <div id="fav-export-preview-content" class="fav-export-preview-content"></div>
+      </div>
+      <div class="fav-export-actions">
+        <div class="fav-width-switch fav-export-width-switch" role="group" aria-label="导出宽度">
+          <button type="button" class="fav-export-width-btn" data-reader-width="480">紧凑</button>
+          <button type="button" class="fav-export-width-btn is-active" data-reader-width="760">标准</button>
+          <button type="button" class="fav-export-width-btn" data-reader-width="920">宽松</button>
+        </div>
+        <button id="fav-export-download" class="fav-detail-action-btn" type="button">下载图片</button>
+      </div>
+    </div>
+  </div>
+  <div id="fav-export-stage" class="fav-export-stage" aria-hidden="true"></div>
   <script src="favorites.js"></script>
 </body>
 </html>
