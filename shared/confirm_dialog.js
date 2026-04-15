@@ -3,7 +3,7 @@
     const {
       iconUrl = '../icons/delete.svg',
       title = '确认删除',
-      text = '请确认是否删除，删除后无法恢复。',
+      text = '请确认是否删除，删除后无法恢复',
       confirmText = '删除',
       cancelText = '取消'
     } = options;

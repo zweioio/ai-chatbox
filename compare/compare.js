@@ -1368,7 +1368,7 @@
   updateRestoreSummary();
 
   if (refreshBtn) {
-    refreshBtn.innerHTML = `<img src="${compareRefreshIconUrl}" width="18" height="18" alt="refresh" /><span>刷新回答</span>`;
+    refreshBtn.innerHTML = `<img src="${compareRefreshIconUrl}" width="18" height="18" alt="refresh" /><span>重新读取</span>`;
     refreshBtn.addEventListener("click", () => {
       scheduleAllSummaryExtraction();
     });
