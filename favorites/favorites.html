@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>备忘录</title>
   <script src="../shared/page_bootstrap.js"></script>
+  <link rel="stylesheet" href="../shared/confirm_dialog.css">
   <link rel="stylesheet" href="favorites.css">
 </head>
 <body>
@@ -45,32 +46,12 @@
             <button type="button" class="fav-width-btn" data-reader-width="920">宽松</button>
           </div>
           <button id="fav-detail-export" class="fav-detail-action-btn" type="button">导出</button>
-          <button id="fav-detail-delete" class="fav-detail-icon-btn" type="button" aria-label="删除备忘录">
+          <button id="fav-detail-delete" class="fav-detail-icon-btn" type="button" data-tip="删除">
             <img src="../icons/delete.svg" alt="">
-            <span class="fav-detail-icon-tip">删除</span>
           </button>
         </div>
       </div>
       <div id="fav-detail-body" class="fav-detail-body"></div>
-    </div>
-  </div>
-  <div id="fav-confirm-mask" class="fav-confirm-mask" hidden>
-    <div class="fav-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="fav-confirm-title">
-      <div class="fav-confirm-head">
-        <div class="fav-confirm-icon">
-          <img src="../icons/delete.svg" alt="">
-        </div>
-        <div class="fav-confirm-copy">
-          <strong id="fav-confirm-title">删除备忘录</strong>
-          <p id="fav-confirm-text">确认删除当前备忘录吗？删除后无法恢复。</p>
-        </div>
-      </div>
-      <div class="fav-confirm-actions">
-        <button id="fav-confirm-cancel" class="fav-detail-action-btn" type="button">取消</button>
-        <button id="fav-confirm-submit" class="fav-detail-icon-btn" type="button" aria-label="确认删除">
-          <img src="../icons/delete.svg" alt="">
-        </button>
-      </div>
     </div>
   </div>
   <div id="fav-export-mask" class="fav-export-mask" hidden>
@@ -96,6 +77,7 @@
     </div>
   </div>
   <div id="fav-export-stage" class="fav-export-stage" aria-hidden="true"></div>
+  <script src="../shared/confirm_dialog.js"></script>
   <script src="favorites.js"></script>
 </body>
 </html>

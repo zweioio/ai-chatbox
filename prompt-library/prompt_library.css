@@ -700,63 +700,6 @@ button {
   z-index: 1100;
 }
 
-.pl-confirm-mask[hidden] {
-  display: none;
-}
-
-.pl-confirm-dialog {
-  width: min(420px, 100%);
-  border: 1px solid var(--pl-border);
-  border-radius: 16px;
-  background: var(--pl-card);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
-  padding: 20px;
-}
-
-.pl-confirm-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.pl-confirm-icon-wrap {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--pl-danger-bg);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-}
-
-.pl-confirm-icon-wrap img {
-  width: 20px;
-  height: 20px;
-  display: block;
-}
-
-.pl-confirm-copy strong {
-  display: block;
-  font-size: 16px;
-  line-height: 1.4;
-  color: var(--pl-text);
-}
-
-.pl-confirm-copy p {
-  margin: 6px 0 0;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--pl-text-secondary);
-}
-
-.pl-confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
-}
-
 .pl-editor {
   width: min(760px, 100%);
   max-height: calc(100vh - 48px);

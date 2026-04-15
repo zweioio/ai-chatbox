@@ -9,10 +9,6 @@
   const detailExportBtn = document.getElementById('fav-detail-export');
   const detailDeleteBtn = document.getElementById('fav-detail-delete');
   const widthButtons = Array.from(document.querySelectorAll('.fav-width-btn, .fav-export-width-btn'));
-  const confirmMask = document.getElementById('fav-confirm-mask');
-  const confirmText = document.getElementById('fav-confirm-text');
-  const confirmCancelBtn = document.getElementById('fav-confirm-cancel');
-  const confirmSubmitBtn = document.getElementById('fav-confirm-submit');
   const exportMask = document.getElementById('fav-export-mask');
   const exportStatus = document.getElementById('fav-export-status');
   const exportPreviewContent = document.getElementById('fav-export-preview-content');
@@ -27,8 +23,10 @@
   let favorites = [];
   let activeDetailId = '';
   let readerWidth = localStorage.getItem('aiSearchProMemoReaderWidth') || '760';
-  let confirmResolver = null;
   let exportPreviewId = '';
+  const confirmDialog = window.AIChatboxConfirmDialog?.createDeleteConfirmDialog({
+    iconUrl: '../icons/delete.svg'
+  });
 
   function openPage(path) {
     if (typeof window.__AI_SEARCH_PRO_NAVIGATE === 'function') {
@@ -51,21 +49,9 @@
     if (detailPageEl) detailPageEl.hidden = !showingDetail;
   }
 
-  function openConfirmDialog(text) {
-    if (!confirmMask || !confirmText) return Promise.resolve(false);
-    confirmText.textContent = text;
-    confirmMask.hidden = false;
-    return new Promise((resolve) => {
-      confirmResolver = resolve;
-    });
-  }
-
-  function closeConfirmDialog(result) {
-    if (!confirmMask) return;
-    confirmMask.hidden = true;
-    const resolver = confirmResolver;
-    confirmResolver = null;
-    resolver?.(result);
+  function openConfirmDialog() {
+    if (!confirmDialog) return Promise.resolve(false);
+    return confirmDialog.open();
   }
 
   function escapeHtml(text) {
@@ -428,7 +414,7 @@
   async function deleteFavorite(id) {
     const item = getFavoriteById(id);
     if (!item) return;
-    const confirmed = await openConfirmDialog(`确认删除备忘录“${getFavoriteTitle(item)}”吗？删除后无法恢复。`);
+    const confirmed = await openConfirmDialog();
     if (!confirmed) return;
     const next = favorites.filter((entry) => entry.id !== id);
     await persistFavorites(next);
@@ -466,11 +452,6 @@
   detailDeleteBtn?.addEventListener('click', async () => {
     if (!activeDetailId) return;
     await deleteFavorite(activeDetailId);
-  });
-  confirmCancelBtn?.addEventListener('click', () => closeConfirmDialog(false));
-  confirmSubmitBtn?.addEventListener('click', () => closeConfirmDialog(true));
-  confirmMask?.addEventListener('click', (event) => {
-    if (event.target === confirmMask) closeConfirmDialog(false);
   });
   exportCloseBtn?.addEventListener('click', closeExportPreview);
   exportMask?.addEventListener('click', (event) => {

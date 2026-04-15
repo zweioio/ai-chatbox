@@ -10,7 +10,23 @@
     { key: 'prompt-polish', label: '润色', file: 'selection-polish.svg', fallback: '✨' },
     { key: 'prompt-review', label: '代码审查', file: 'selection-review.svg', fallback: '🔍' },
     { key: 'prompt-rewrite', label: '改写', file: 'selection-rewrite.svg', fallback: '✍️' },
-    { key: 'prompt-article', label: '文章提炼', file: 'selection-article.svg', fallback: '📚' }
+    { key: 'prompt-article', label: '文章提炼', file: 'selection-article.svg', fallback: '📚' },
+    { key: 'icon-time', label: '时间', file: 'time.svg', fallback: '⏰' },
+    { key: 'icon-star', label: '星标', file: 'star.svg', fallback: '⭐' },
+    { key: 'icon-diary', label: '日记', file: 'diary.svg', fallback: '📔' },
+    { key: 'icon-flag', label: '旗帜', file: 'flag.svg', fallback: '🚩' },
+    { key: 'icon-hexagon', label: '六边形', file: 'hexagon.svg', fallback: '⬡' },
+    { key: 'icon-diamond', label: '菱形', file: 'diamond.svg', fallback: '🔷' },
+    { key: 'icon-text', label: '文本', file: 'text.svg', fallback: 'T' },
+    { key: 'icon-notebook', label: '笔记本', file: 'notebook.svg', fallback: '📓' },
+    { key: 'icon-sandglass', label: '沙漏', file: 'sandglass.svg', fallback: '⌛' },
+    { key: 'icon-expand-length', label: '扩展长度', file: 'expand-length.svg', fallback: '📈' },
+    { key: 'icon-compress-length', label: '压缩长度', file: 'compress-length.svg', fallback: '🗜️' },
+    { key: 'icon-change-tone', label: '改变语气', file: 'change-tone.svg', fallback: '🎯' },
+    { key: 'icon-simplify-language', label: '简化语言', file: 'simplify-language.svg', fallback: '🪶' },
+    { key: 'icon-outline', label: '大纲', file: 'outline.svg', fallback: '🗂️' },
+    { key: 'icon-brainstorm', label: '头脑风暴', file: 'brainstorm.svg', fallback: '🧠' },
+    { key: 'icon-mindmap', label: '思维导图', file: 'mindmap.svg', fallback: '🗺️' }
   ];
   const PROMPT_ICON_MAP = new Map(PROMPT_ICON_OPTIONS.map((item) => [item.key, item]));
   const LOCKED_PROMPT_IDS = ['prompt-explain', 'prompt-summary', 'prompt-translate', 'prompt-polish', 'prompt-rewrite'];
@@ -21,7 +37,14 @@
     { id: 'prompt-polish', title: '润色', icon: '✨', iconKey: 'prompt-polish', template: '请润色下面这段内容，让表达更清晰自然：\n\n{{text}}', enabled: true },
     { id: 'prompt-rewrite', title: '改写', icon: '✍️', iconKey: 'prompt-rewrite', template: '请在不改变原意的前提下改写下面内容，让表达更自然：\n\n{{text}}', enabled: true },
     { id: 'prompt-article', title: '文章提炼', icon: '📚', iconKey: 'prompt-article', template: '请结合以下上下文提炼关键信息，并给出结构化总结：\n\n选中内容：\n{{text}}\n\n上下文：\n{{context}}\n\n页面标题：{{page}}\n页面地址：{{url}}', enabled: false },
-    { id: 'prompt-review', title: '代码审查', icon: '🔍', iconKey: 'prompt-review', template: '请从可读性、潜在问题和改进建议三个方面审查下面这段代码：\n\n{{text}}', enabled: false }
+    { id: 'prompt-review', title: '代码审查', icon: '🔍', iconKey: 'prompt-review', template: '请从可读性、潜在问题和改进建议三个方面审查下面这段代码：\n\n{{text}}', enabled: false },
+    { id: 'prompt-expand-length', title: '扩展长度', icon: '📈', iconKey: 'icon-expand-length', template: '下面是需要改写的原文：\n"""{{text}}"""\n\n请在保持核心含义不变的前提下，将上面的内容扩展为原长度的两倍左右。不要加入任何全新的信息、观点或想法。请直接输出扩展后的文本，不要添加引号或其他额外格式。并使用与原文相同的语言输出。', enabled: false },
+    { id: 'prompt-compress-length', title: '压缩长度', icon: '🗜️', iconKey: 'icon-compress-length', template: '下面是需要改写的原文：\n"""{{text}}"""\n\n请在保持核心含义不变的前提下，将上面的内容压缩到不超过原文字数的一半。只输出改写后的文本，不要添加引号或其他额外格式。并使用与原文相同的语言输出。', enabled: false },
+    { id: 'prompt-change-tone', title: '改变语气', icon: '🎯', iconKey: 'icon-change-tone', template: '下面是原文：\n"""{{text}}"""\n\n请使用与原文相同的语言输出，并将这段内容改写成更专业的语气。只输出改写后的文本，不要添加引号、标签或其他额外说明。', enabled: false },
+    { id: 'prompt-simplify-language', title: '简化语言', icon: '🪶', iconKey: 'icon-simplify-language', template: '请将下面内容改写得更清晰、更容易理解、表达更简洁，减少歧义和复杂说法。只输出结果，不要添加任何额外说明，也不要使用引号包裹。请使用与原文相同的语言输出。\n\n{{text}}', enabled: false },
+    { id: 'prompt-outline', title: '大纲', icon: '🗂️', iconKey: 'icon-outline', template: '请根据下面的主题或关键词生成一份包含标题、章节和小节的大纲，并使用 Markdown 格式输出。只输出结果，不要添加任何额外说明。请使用与输入内容相同的语言。\n\n主题或关键词：\n"""{{text}}"""', enabled: false },
+    { id: 'prompt-brainstorm', title: '头脑风暴', icon: '🧠', iconKey: 'icon-brainstorm', template: '请根据下面的关键词或主题生成 10 个有创意的想法。每个想法都应当独特，并提供新的角度或思路。请使用无序列表输出，只输出结果，不要添加任何额外说明。请使用与输入内容相同的语言。\n\n关键词或主题：\n"""{{text}}"""', enabled: false },
+    { id: 'prompt-mindmap', title: '思维导图', icon: '🗺️', iconKey: 'icon-mindmap', template: '请将下面内容整理成清晰的思维导图结构，要求层级分明、重点明确，便于学习、整理和汇报。请使用分层列表或树状结构输出，只输出结果，不要添加额外说明。\n\n"""{{text}}"""', enabled: false }
   ];
   const listEl = document.getElementById('pl-list');
   const addBtn = document.getElementById('pl-add-btn');
@@ -40,11 +63,6 @@
   const editorCancel = document.getElementById('pl-editor-cancel');
   const editorSave = document.getElementById('pl-editor-save');
   const editorDelete = document.getElementById('pl-editor-delete');
-  const confirmMask = document.getElementById('pl-confirm-mask');
-  const confirmTitle = document.getElementById('pl-confirm-title');
-  const confirmText = document.getElementById('pl-confirm-text');
-  const confirmCancel = document.getElementById('pl-confirm-cancel');
-  const confirmSubmit = document.getElementById('pl-confirm-submit');
   const openSettingsBtn = document.getElementById('pl-open-settings-btn');
   const openMemoBtn = document.getElementById('pl-open-memo-btn');
   const openCompareBtn = document.getElementById('pl-open-compare-btn');
@@ -62,8 +80,10 @@
   let dirty = false;
   let editingId = '';
   let iconPickerOpen = false;
-  let confirmResolver = null;
   const themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const confirmDialog = window.AIChatboxConfirmDialog?.createDeleteConfirmDialog({
+    iconUrl: '../icons/delete.svg'
+  });
 
   function makeId() {
     return `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -461,32 +481,22 @@
     text,
     confirmTextValue = '删除'
   }) {
-    if (!confirmMask || !confirmTitle || !confirmText || !confirmSubmit) {
+    if (!confirmDialog) {
       return Promise.resolve(false);
     }
-    confirmTitle.textContent = title;
-    confirmText.textContent = text;
-    confirmSubmit.textContent = confirmTextValue;
-    confirmMask.hidden = false;
-    return new Promise((resolve) => {
-      confirmResolver = resolve;
+    return confirmDialog.open({
+      title,
+      text,
+      confirmText: confirmTextValue
     });
-  }
-
-  function closeConfirmDialog(result) {
-    if (!confirmMask) return;
-    confirmMask.hidden = true;
-    const resolver = confirmResolver;
-    confirmResolver = null;
-    resolver?.(result);
   }
 
   async function deletePrompt(id) {
     const item = prompts.find((prompt) => prompt.id === id);
     if (!item || isBuiltInPrompt(id)) return;
     const confirmed = await openConfirmDialog({
-      title: '删除提示词',
-      text: `确认删除提示词“${item.title}”吗？删除后无法恢复。`,
+      title: '确认删除',
+      text: '请确认是否删除，删除后无法恢复。',
       confirmTextValue: '删除'
     });
     if (!confirmed) return;
@@ -572,12 +582,6 @@
   editorDelete.addEventListener('click', async () => {
     if (!editingId) return;
     await deletePrompt(editingId);
-  });
-
-  confirmCancel?.addEventListener('click', () => closeConfirmDialog(false));
-  confirmSubmit?.addEventListener('click', () => closeConfirmDialog(true));
-  confirmMask?.addEventListener('click', (event) => {
-    if (event.target === confirmMask) closeConfirmDialog(false);
   });
 
   editorMask.addEventListener('click', (event) => {

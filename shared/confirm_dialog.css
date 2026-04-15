@@ -1,0 +1,86 @@
+.shared-confirm-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1400;
+}
+
+.shared-confirm-mask[hidden] {
+  display: none;
+}
+
+.shared-confirm-dialog {
+  width: min(420px, 100%);
+  border: 1px solid #d1d5db;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.shared-confirm-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.shared-confirm-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(220, 38, 38, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.shared-confirm-icon img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.shared-confirm-copy strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1;
+  color: #111827;
+}
+
+.shared-confirm-copy p {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1;
+  color: #6b7280;
+}
+
+.shared-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.shared-confirm-btn {
+  height: 40px;
+  border: 1px solid #eceef0;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 0 14px;
+  color: #111827;
+  cursor: pointer;
+}
+
+.shared-confirm-btn:hover {
+  background: #f3f4f6;
+}
+
+.shared-confirm-btn-danger {
+  color: #dc2626;
+}

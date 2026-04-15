@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>提示词</title>
   <script src="../shared/page_bootstrap.js"></script>
+  <link rel="stylesheet" href="../shared/confirm_dialog.css">
   <link rel="stylesheet" href="prompt_library.css">
 </head>
 <body>
@@ -138,23 +139,7 @@
       </div>
     </div>
   </div>
-  <div id="pl-confirm-mask" class="pl-confirm-mask" hidden>
-    <div class="pl-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="pl-confirm-title">
-      <div class="pl-confirm-head">
-        <div class="pl-confirm-icon-wrap">
-          <img src="../icons/delete.svg" alt="">
-        </div>
-        <div class="pl-confirm-copy">
-          <strong id="pl-confirm-title">删除提示词</strong>
-          <p id="pl-confirm-text">确认删除当前提示词吗？删除后无法恢复。</p>
-        </div>
-      </div>
-      <div class="pl-confirm-actions">
-        <button id="pl-confirm-cancel" type="button">取消</button>
-        <button id="pl-confirm-submit" class="pl-danger-btn" type="button">删除</button>
-      </div>
-    </div>
-  </div>
+  <script src="../shared/confirm_dialog.js"></script>
   <script src="prompt_library.js"></script>
 </body>
 </html>
