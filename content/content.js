@@ -1766,7 +1766,7 @@
         return;
       }
     
-    const searchEngineId = getCurrentSearchEngine();
+    const searchEngineId = getCurrentSearchEngineId();
     const preferredSearchPlatform = getDefaultSearchAssistantPlatformId();
     if (searchEngineId && enabledPlatforms.includes(preferredSearchPlatform)) {
       currentPlatform = preferredSearchPlatform;
@@ -2281,7 +2281,7 @@
             if (!shouldUseHashBootstrap(platformKey)) {
               const currentQuery = getSearchQuery();
               if (currentQuery) {
-                setTimeout(() => sendQueryToIframe(iframe, currentQuery), 180);
+                  setTimeout(() => sendQueryToIframe(iframe, currentQuery), 180);
               }
             }
           }

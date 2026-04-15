@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AIChatbox",
+  "name": "AIChatbox：一站式联动主流 AI 助手，支持豆包、千问、ChatGPT、Claude、DeepSeek、Gemini、Grok等。",
   "version": "1.0.0",
-  "description": "在搜索结果页、小窗和侧边栏联动主流 AI 助手，支持划词、右键 AI 处理、对比阅读与平台切换。",
+  "description": "聚合主流 AI 助手，一站式联动不同场景，支持搜索页、小窗和侧边栏中联动提问，支持网页划词、右键处理、多模型对比以及本地提示词和备忘录管理与导出图片分享等",
   "permissions": [
     "storage",
     "activeTab",
@@ -36,7 +36,7 @@
     "128": "icons/aichatbox.png"
   },
   "action": {
-    "default_title": "AIChatbox",
+    "default_title": "AIChatbox：一站式联动主流 AI 助手，支持豆包、千问、ChatGPT、Claude、DeepSeek、Gemini、Grok等。",
     "default_icon": {
       "16": "icons/aichatbox.png",
       "48": "icons/aichatbox.png",
